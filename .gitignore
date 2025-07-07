@@ -2,3 +2,6 @@
 /backend/djangoapp/yapify/__pycache__
 backend/djangoapp/db.sqlite3
 /backend/djangoapp/yapify/migrations/__pycache__
+/backend/djangoapp/__pycache__
+/backend/djangoapp/api/__pycache__
+/backend/djangoapp/api/migrations/__pycache__
