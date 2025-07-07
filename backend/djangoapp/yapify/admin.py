@@ -1,0 +1,67 @@
+from django.contrib import admin
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.utils.translation import gettext_lazy as _
+from .models import User, Friendship, Quote, QuoteWitness, QuoteLike, Notification
+
+
+@admin.register(User)
+class UserAdmin(BaseUserAdmin):
+    fieldsets = (
+        (None, {'fields': ('email', 'password')}),
+        (_('Personal info'), {'fields': ('first_name', 'last_name', 'bio')}),
+        (_('Permissions'), {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
+        (_('Important dates'), {'fields': ('last_login', 'date_joined')}),
+    )
+    add_fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': ('email', 'first_name', 'last_name', 'password1', 'password2'),
+        }),
+    )
+    list_display = ('email', 'first_name', 'last_name', 'is_active', 'is_staff')
+    search_fields = ('email', 'first_name', 'last_name')
+    ordering = ('-date_joined',)
+    filter_horizontal = ('groups', 'user_permissions')
+    list_filter = ('is_active', 'is_staff', 'is_superuser')
+    readonly_fields = ('date_joined',)
+
+
+@admin.register(Friendship)
+class FriendshipAdmin(admin.ModelAdmin):
+    list_display = ('sender', 'receiver', 'status', 'created_at')
+    list_filter = ('status', 'created_at')
+    search_fields = ('sender__email', 'receiver__email')
+    autocomplete_fields = ('sender', 'receiver')
+
+
+@admin.register(Quote)
+class QuoteAdmin(admin.ModelAdmin):
+    list_display = ('__str__', 'author', 'quoted_user', 'is_public', 'is_active', 'created_at')
+    list_filter = ('is_public', 'is_active', 'created_at')
+    search_fields = ('text', 'author__email', 'quoted_user__email')
+    autocomplete_fields = ('author', 'quoted_user')
+    readonly_fields = ('created_at', 'updated_at')
+
+
+@admin.register(QuoteWitness)
+class QuoteWitnessAdmin(admin.ModelAdmin):
+    list_display = ('witness', 'quote', 'is_witness', 'created_at')
+    list_filter = ('is_witness', 'created_at')
+    search_fields = ('witness__email', 'quote__text')
+    autocomplete_fields = ('witness', 'quote')
+
+
+@admin.register(QuoteLike)
+class QuoteLikeAdmin(admin.ModelAdmin):
+    list_display = ('user', 'quote', 'created_at')
+    search_fields = ('user__email', 'quote__text')
+    autocomplete_fields = ('user', 'quote')
+
+
+@admin.register(Notification)
+class NotificationAdmin(admin.ModelAdmin):
+    list_display = ('notification_type', 'recipient', 'is_read', 'created_at')
+    list_filter = ('notification_type', 'is_read', 'created_at')
+    search_fields = ('recipient__email', 'sender__email', 'title')
+    autocomplete_fields = ('recipient', 'sender', 'quote', 'friendship')
+    readonly_fields = ('created_at',)
