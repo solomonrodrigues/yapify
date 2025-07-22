@@ -7,7 +7,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from django.contrib.auth import get_user_model
-from .models import User, Friendship, Quote, QuoteWitness, QuoteLike, Notification
+from djangoapp.yapify.models import User, Friendship, Quote, QuoteWitness, QuoteLike, Notification
 from .serializers import (
     UserRegistrationSerializer, UserSerializer, FriendshipSerializer,
     FriendRequestSerializer, QuoteSerializer, QuoteWitnessSerializer,
