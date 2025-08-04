@@ -20,8 +20,15 @@ RUN set -ex && \
     pip install --upgrade pip && \
     pip install -r /tmp/requirements.txt && \
     rm -rf /root/.cache/
+
+# Copy entrypoint before everything else
+COPY entrypoint.sh /code/entrypoint.sh
+RUN chmod +x /code/entrypoint.sh
+
+# Copy the app source
 COPY . /code
 
 EXPOSE 8000
 
+ENTRYPOINT ["/code/entrypoint.sh"]
 CMD ["gunicorn", "--bind", ":8000", "--workers", "2", "djangoapp.yapify.wsgi:application"]
