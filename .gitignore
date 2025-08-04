@@ -1,7 +1,9 @@
 /.idea
-/backend/djangoapp/yapify/__pycache__
-backend/djangoapp/db.sqlite3
-/backend/djangoapp/yapify/migrations/__pycache__
-/backend/djangoapp/__pycache__
-/backend/djangoapp/api/__pycache__
-/backend/djangoapp/api/migrations/__pycache__
+djangoapp/yapify/__pycache__
+djangoapp/db.sqlite3
+djangoapp/yapify/migrations/__pycache__
+djangoapp/__pycache__
+djangoapp/api/__pycache__
+djangoapp/api/migrations/__pycache__
+__pycache__/
+*.py[cod]
