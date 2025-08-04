@@ -21,12 +21,10 @@ RUN set -ex && \
     pip install -r /tmp/requirements.txt && \
     rm -rf /root/.cache/
 
-# Copy entrypoint before everything else
-COPY entrypoint.sh /code/entrypoint.sh
-RUN chmod +x /code/entrypoint.sh
-
 # Copy the app source
 COPY . /code
+
+RUN chmod +x /code/entrypoint.sh
 
 EXPOSE 8000
 
