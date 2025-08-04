@@ -31,4 +31,4 @@ COPY . /code
 EXPOSE 8000
 
 ENTRYPOINT ["/code/entrypoint.sh"]
-CMD ["gunicorn", "--bind", ":8000", "--workers", "2", "djangoapp.yapify.wsgi:application"]
+CMD ["gunicorn", "--bind", ":8000", "--workers", "1", "djangoapp.yapify.wsgi:application"]
