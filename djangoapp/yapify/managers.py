@@ -29,7 +29,7 @@ class MyUserManager(BaseUserManager):
             first_name=first_name,
             last_name=last_name,
         )
-        user.is_admin = True
+        user.is_staff = True
         user.is_superuser = True
         user.is_active = True
         user.save(using=self._db)
