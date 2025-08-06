@@ -27,9 +27,19 @@ SECRET_KEY = 'django-insecure-#v=e089b#_-83%$5t8wrp3$g8r9j*8&@woz$$*mwv5!*ad^w7g
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = ['*']
-# CSRF_TRUSTED_ORIGINS = ['*']
+# Allowed hosts - add your production domain and localhost for dev
+ALLOWED_HOSTS = [
+    'yapify-production.up.railway.app',
+    'localhost',
+    '127.0.0.1',
+]
 
+# CSRF trusted origins for HTTPS requests (include protocol)
+CSRF_TRUSTED_ORIGINS = [
+    'https://yapify-production.up.railway.app',
+    'http://localhost',
+    'http://127.0.0.1',
+]
 
 # Application definition
 
