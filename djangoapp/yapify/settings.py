@@ -27,6 +27,15 @@ SECRET_KEY = 'django-insecure-#v=e089b#_-83%$5t8wrp3$g8r9j*8&@woz$$*mwv5!*ad^w7g
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
+if not DEBUG:
+    import sentry_sdk
+    sentry_sdk.init(
+        dsn="https://ffbdad07e6079794aba69ae53083fd0e@o4506320558555136.ingest.us.sentry.io/4509797418336256",
+        # Add data like request headers and IP for users,
+        # see https://docs.sentry.io/platforms/python/data-management/data-collected/ for more info
+        send_default_pii=True,
+    )
+
 # Allowed hosts - add your production domain and localhost for dev
 ALLOWED_HOSTS = [
     'yapify-production.up.railway.app',
