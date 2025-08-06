@@ -4,7 +4,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
-from .models import User, Friendship, Quote, QuoteWitness, QuoteLike, Notification
+from djangoapp.yapify.models import User, Friendship, Quote, QuoteWitness, QuoteLike, Notification
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
