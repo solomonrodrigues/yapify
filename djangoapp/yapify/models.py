@@ -18,7 +18,7 @@ class User(AbstractUser):
     is_active = models.BooleanField(default=True)
 
     # Profile fields
-    bio = models.TextField(max_length=500, blank=True)
+    bio = models.TextField(max_length=500, blank=True, null=True)
     # Currently leaving out, to keep simple and save DB space for MVP - perhaps use emojis instead for the time being?
     # profile_picture = models.ImageField(upload_to='profile_pics/', blank=True, null=True)
 
