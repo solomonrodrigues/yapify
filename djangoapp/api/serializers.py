@@ -41,7 +41,7 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id', 'email', 'first_name', 'last_name', 'full_name',
-                  'bio', 'profile_picture', 'date_joined', 'friends_count', 'quotes_count')
+                  'bio', 'date_joined', 'friends_count', 'quotes_count')
         read_only_fields = ('id', 'email', 'date_joined')
 
     def get_friends_count(self, obj):
