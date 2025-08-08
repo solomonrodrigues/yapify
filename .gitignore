@@ -1,4 +1,5 @@
 /.idea
+.env
 djangoapp/yapify/__pycache__
 djangoapp/db.sqlite3
 djangoapp/yapify/migrations/__pycache__
