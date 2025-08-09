@@ -3,7 +3,6 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
-from django.core.exceptions import ValidationError
 from djangoapp.yapify.models import User, Friendship, Quote, QuoteWitness, QuoteLike, Notification
 
 
@@ -196,7 +195,8 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         super().__init__(*args, **kwargs)
         self.fields['email'] = serializers.EmailField()
         self.fields['password'] = serializers.CharField()
-        del self.fields['username']
+        if 'username' in self.fields:
+            del self.fields['username']
 
     def validate(self, attrs):
         email = attrs.get('email')
