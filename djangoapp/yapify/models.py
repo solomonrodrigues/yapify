@@ -3,35 +3,31 @@ from django.db import models
 from django.conf import settings
 from django.core.exceptions import ValidationError
 
+from .choices import ProfileColor
 from .managers import MyUserManager
+from .utils import get_random_color
 
 
 class User(AbstractUser):
-    """
-    Custom user model that uses email as the username field
-    """
-    username = None  # Remove username field
-    email = models.EmailField(unique=True)
-    first_name = models.CharField(max_length=30, blank=False)
-    last_name = models.CharField(max_length=30, blank=False)
-    date_joined = models.DateTimeField(auto_now_add=True)
-    is_active = models.BooleanField(default=True)
+    # Remove first_name and last_name
+    first_name = None
+    last_name = None
+    # Inherits username, is_staff, is_active, and date_joined from AbstractUser
+    email = models.EmailField(unique=True)  # Override to enforce uniqueness
+    display_name = models.CharField(max_length=150, blank=False, null=True)  # Temporarily nullable
+    username = models.CharField(max_length=150, blank=False, null=True)  # Temporarily nullable and overridden
 
     # Profile fields
     bio = models.TextField(max_length=500, blank=True, null=True)
-    # Currently leaving out, to keep simple and save DB space for MVP - perhaps use emojis instead for the time being?
-    # profile_picture = models.ImageField(upload_to='profile_pics/', blank=True, null=True)
+    profile_color = models.CharField(choices=ProfileColor, default=get_random_color)
 
     objects = MyUserManager()
 
     USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['first_name', 'last_name']
+    REQUIRED_FIELDS = ['username', 'display_name']
 
     def __str__(self):
         return self.email
-
-    def get_full_name(self):
-        return f"{self.first_name} {self.last_name}"
 
     def get_friends(self):
         """Return all accepted friends"""

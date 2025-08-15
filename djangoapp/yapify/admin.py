@@ -8,18 +8,18 @@ from .models import User, Friendship, Quote, QuoteWitness, QuoteLike, Notificati
 class UserAdmin(BaseUserAdmin):
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
-        (_('Personal info'), {'fields': ('first_name', 'last_name', 'bio')}),
+        (_('Personal info'), {'fields': ('username', 'display_name', 'bio')}),
         (_('Permissions'), {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
         (_('Important dates'), {'fields': ('last_login', 'date_joined')}),
     )
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('email', 'first_name', 'last_name', 'password1', 'password2'),
+            'fields': ('email', 'username', 'display_name', 'password1', 'password2'),
         }),
     )
-    list_display = ('email', 'first_name', 'last_name', 'is_active', 'is_staff')
-    search_fields = ('email', 'first_name', 'last_name')
+    list_display = ('email', 'username', 'display_name', 'is_active', 'is_staff')
+    search_fields = ('email', 'username', 'display_name')
     ordering = ('-date_joined',)
     filter_horizontal = ('groups', 'user_permissions')
     list_filter = ('is_active', 'is_staff', 'is_superuser')
