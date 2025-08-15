@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 from .choices import ProfileColor
 from .managers import MyUserManager
 from .utils import get_random_color
+from .validators import yapify_username_validator
 
 
 class User(AbstractUser):
@@ -14,8 +15,12 @@ class User(AbstractUser):
     last_name = None
     # Inherits username, is_staff, is_active, and date_joined from AbstractUser
     email = models.EmailField(unique=True)  # Override to enforce uniqueness
-    display_name = models.CharField(max_length=150, blank=False, null=True)  # Temporarily nullable
-    username = models.CharField(max_length=150, blank=False, null=True)  # Temporarily nullable and overridden
+    display_name = models.CharField(max_length=50)
+    username = models.CharField(
+        max_length=30,
+        unique=True,
+        validators=[yapify_username_validator]
+    )
 
     # Profile fields
     bio = models.TextField(max_length=500, blank=True, null=True)
