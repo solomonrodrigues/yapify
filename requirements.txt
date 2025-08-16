@@ -9,3 +9,4 @@ whitenoise==6.9.0
 sentry-sdk[django]==2.34.1
 python-dotenv==1.1.1
 django-debug-toolbar==6.0.0
+drf-spectacular==0.28.0

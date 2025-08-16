@@ -20,10 +20,11 @@ INSTALLED_APPS += [  # Third party apps
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',  # for mobile app CORS
+    'drf_spectacular',
 ]
 INSTALLED_APPS += [  # Custom apps
     'djangoapp.api',
-    'djangoapp.yapify'
+    'djangoapp.yapify',
 ]
 
 MIDDLEWARE = [
@@ -105,6 +106,7 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
 SIMPLE_JWT = {
@@ -141,3 +143,15 @@ CORS_ALLOW_ALL_ORIGINS = True
 # Email backend for development
 # ToDo: Set up email backend for production
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# drf-spectacular ships with sane default settings that should work reasonably well out of the box.
+# It is not necessary to specify any settings, but it's recommended to specify at least some metadata.
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Yapify API',
+    'DESCRIPTION': 'An app to share quotes that your friends have said.',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': True,
+    'SERVE_PERMISSIONS': [
+        'rest_framework.permissions.IsAdminUser',
+    ],
+}

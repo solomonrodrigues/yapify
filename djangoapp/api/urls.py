@@ -1,9 +1,15 @@
 # urls.py
-from django.urls import path, include
+from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
-from . import views
+from djangoapp.api import views
+from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView
 
 urlpatterns = [
+    # OpenAPI Schema download
+    path('schema/', SpectacularAPIView.as_view(), name='schema'),
+    # Redoc UI
+    path('schema/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+
     # Authentication
     path('auth/register/', views.RegisterView.as_view(), name='register'),
     path('auth/login/', views.CustomTokenObtainPairView.as_view(), name='login'),
