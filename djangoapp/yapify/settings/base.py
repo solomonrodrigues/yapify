@@ -19,6 +19,7 @@ INSTALLED_APPS = [  # Django apps
 INSTALLED_APPS += [  # Third party apps
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'corsheaders',  # for mobile app CORS
     'drf_spectacular',
 ]
