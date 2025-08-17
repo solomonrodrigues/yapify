@@ -1,20 +1,16 @@
 # views.py
-from rest_framework import generics, status, permissions
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework import generics, status, permissions, exceptions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
-from django.contrib.auth import get_user_model
 from djangoapp.yapify.models import User, Friendship, Quote, QuoteWitness, QuoteLike, Notification
 from .serializers import (
     UserRegistrationSerializer, UserSerializer, FriendshipSerializer,
     FriendRequestSerializer, QuoteSerializer, QuoteWitnessSerializer,
-    QuoteLikeSerializer, NotificationSerializer, CustomTokenObtainPairSerializer
+    NotificationSerializer, CustomTokenObtainPairSerializer
 )
-
-User = get_user_model()
 
 
 class RegisterView(generics.CreateAPIView):
@@ -157,7 +153,10 @@ class QuoteListCreateView(generics.ListCreateAPIView):
 
         # Get quotes from friends and public quotes
         return Quote.objects.filter(
-            Q(author__in=friends) | Q(quoted_user=user) | Q(is_public=True)
+            Q(author__in=friends) |
+            Q(author=user) |
+            Q(quoted_user=user) |
+            Q(is_public=True)
         ).filter(is_active=True).distinct()
 
     def perform_create(self, serializer):
@@ -186,13 +185,13 @@ class QuoteDetailView(generics.RetrieveUpdateDestroyAPIView):
     def perform_update(self, serializer):
         # Only allow author to update
         if self.get_object().author != self.request.user:
-            raise permissions.PermissionDenied("You can only edit your own quotes")
+            raise exceptions.PermissionDenied("You can only edit your own quotes")
         serializer.save()
 
     def perform_destroy(self, instance):
         # Only allow author to delete
         if instance.author != self.request.user:
-            raise permissions.PermissionDenied("You can only delete your own quotes")
+            raise exceptions.PermissionDenied("You can only delete your own quotes")
         instance.is_active = False
         instance.save()
 
