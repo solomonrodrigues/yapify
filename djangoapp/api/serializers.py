@@ -123,8 +123,10 @@ class QuoteSerializer(serializers.ModelSerializer):
     author = MinimalUserSerializer(read_only=True)
     quoted_user = MinimalUserSerializer(read_only=True)
     quoted_user_id = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.all(), write_only=True, required=False
+        queryset=User.objects.all(), write_only=True, required=False, allow_null=True
     )
+    quoted_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
     witness_count = serializers.SerializerMethodField()
     witnesses = QuoteWitnessSerializer(many=True, read_only=True)
     like_count = serializers.SerializerMethodField()
@@ -132,8 +134,12 @@ class QuoteSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Quote
-        fields = ('id', 'text', 'author', 'quoted_user', 'quoted_user_id', 'context', 'is_public', 'created_at',
-                  'updated_at', 'witness_count', 'witnesses', 'like_count', 'is_liked')
+        fields = (
+            'id', 'text', 'author',
+            'quoted_user', 'quoted_user_id', 'quoted_name',
+            'created_at', 'updated_at',
+            'witness_count', 'witnesses', 'like_count', 'is_liked'
+        )
         read_only_fields = ('id', 'author', 'created_at', 'updated_at')
 
     def get_witness_count(self, obj):

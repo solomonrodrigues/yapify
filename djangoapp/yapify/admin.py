@@ -36,8 +36,8 @@ class FriendshipAdmin(admin.ModelAdmin):
 
 @admin.register(Quote)
 class QuoteAdmin(admin.ModelAdmin):
-    list_display = ('__str__', 'author', 'quoted_user', 'is_public', 'is_active', 'created_at')
-    list_filter = ('is_public', 'is_active', 'created_at')
+    list_display = ('__str__', 'author', 'quoted_user', 'is_active', 'created_at')
+    list_filter = ('is_active', 'created_at')
     search_fields = ('text', 'author__email', 'quoted_user__email')
     autocomplete_fields = ('author', 'quoted_user')
     readonly_fields = ('created_at', 'updated_at')

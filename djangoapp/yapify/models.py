@@ -130,7 +130,15 @@ class Quote(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='quotes_about_me',
+        null=True,
+        blank=True,
         help_text="User who said the quote"
+    )
+    quoted_name = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        help_text="Name of the person quoted (if not a registered user)"
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -141,25 +149,32 @@ class Quote(models.Model):
         indexes = [
             models.Index(fields=['author', 'created_at']),
             models.Index(fields=['quoted_user', 'created_at']),
-            models.Index(fields=['is_public', 'created_at']),
         ]
 
     def clean(self):
-        # Ensure users can only quote their friends
-        friendship_exists = Friendship.objects.filter(
-            models.Q(sender=self.author, receiver=self.quoted_user, status='accepted') |
-            models.Q(sender=self.quoted_user, receiver=self.author, status='accepted')
-        ).exists()
+        if not self.quoted_user and not self.quoted_name:
+            raise ValidationError("You must specify either a quoted user or a quoted name.")
 
-        if not friendship_exists:
-            raise ValidationError("You can only quote your friends.")
+        if self.quoted_user and self.quoted_name:
+            raise ValidationError("Specify either quoted_user OR quoted_name, not both.")
+
+        # Only enforce friendship check if quoted_user is set
+        if self.quoted_user:
+            friendship_exists = Friendship.objects.filter(
+                models.Q(sender=self.author, receiver=self.quoted_user, status='accepted') |
+                models.Q(sender=self.quoted_user, receiver=self.author, status='accepted')
+            ).exists()
+
+            if not friendship_exists:
+                raise ValidationError("You can only quote your friends.")
 
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f'"{self.text[:50]}..." - {self.quoted_user} (by {self.author})'
+        who = self.quoted_user if self.quoted_user else self.quoted_name
+        return f'"{self.text[:50]}..." - {who} (by {self.author})'
 
     def get_witness_count(self):
         """Return the number of witnesses for this quote"""
@@ -206,24 +221,18 @@ class QuoteWitness(models.Model):
         ]
 
     def clean(self):
-        # Prevent the quote author from witnessing their own quote
-        if self.witness == self.quote.author:
-            raise ValidationError("Quote authors cannot witness their own quotes.")
-
-        # Prevent the quoted user from witnessing quotes about themselves
-        if self.witness == self.quote.quoted_user:
-            raise ValidationError("Users cannot witness quotes about themselves.")
-
         # Ensure witness is friends with either the author or quoted user
         is_friend_of_author = Friendship.objects.filter(
             models.Q(sender=self.witness, receiver=self.quote.author, status='accepted') |
             models.Q(sender=self.quote.author, receiver=self.witness, status='accepted')
         ).exists()
 
-        is_friend_of_quoted_user = Friendship.objects.filter(
-            models.Q(sender=self.witness, receiver=self.quote.quoted_user, status='accepted') |
-            models.Q(sender=self.quote.quoted_user, receiver=self.witness, status='accepted')
-        ).exists()
+        is_friend_of_quoted_user = False
+        if self.quote.quoted_user is not None:
+            is_friend_of_quoted_user = Friendship.objects.filter(
+                models.Q(sender=self.witness, receiver=self.quote.quoted_user, status='accepted') |
+                models.Q(sender=self.quote.quoted_user, receiver=self.witness, status='accepted')
+            ).exists()
 
         if not (is_friend_of_author or is_friend_of_quoted_user):
             raise ValidationError("You can only witness quotes involving your friends.")

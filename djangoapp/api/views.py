@@ -155,15 +155,14 @@ class QuoteListCreateView(generics.ListCreateAPIView):
         return Quote.objects.filter(
             Q(author__in=friends) |
             Q(author=user) |
-            Q(quoted_user=user) |
-            Q(is_public=True)
+            Q(quoted_user=user)
         ).filter(is_active=True).distinct()
 
     def perform_create(self, serializer):
         quote = serializer.save()
 
-        # Create notification for quoted user
-        if quote.quoted_user != quote.author:
+        # Notify only if quoted_user exists
+        if quote.quoted_user and quote.quoted_user != quote.author:
             Notification.objects.create(
                 recipient=quote.quoted_user,
                 sender=quote.author,
@@ -204,15 +203,6 @@ class WitnessQuoteView(APIView):
         quote = get_object_or_404(Quote, id=quote_id, is_active=True)
         is_witness = request.data.get('is_witness', True)
         comment = request.data.get('comment', '')
-
-        # Check if user can witness this quote
-        if request.user == quote.author:
-            return Response({'error': 'You cannot witness your own quote'},
-                            status=status.HTTP_400_BAD_REQUEST)
-
-        if request.user == quote.quoted_user:
-            return Response({'error': 'You cannot witness quotes about yourself'},
-                            status=status.HTTP_400_BAD_REQUEST)
 
         witness, created = QuoteWitness.objects.get_or_create(
             quote=quote,
