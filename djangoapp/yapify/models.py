@@ -44,6 +44,9 @@ class User(AbstractUser):
     def __str__(self):
         return self.email
 
+    def get_full_name(self):
+        return self.display_name
+
     def get_friends(self):
         """Return all accepted friends"""
         return User.objects.filter(
