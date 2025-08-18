@@ -15,3 +15,8 @@ class ProfileColor(models.TextChoices):
     GREY = "GREY", "Grey"
     CYAN = "CYAN", "Cyan"
     MAGENTA = "MAGENTA", "Magenta"
+
+
+class QuoteVisibility(models.TextChoices):
+    MUTUALS = "mutuals", "Mutual Friends Only"
+    EXTENDED = "extended", "Friends of Friends"

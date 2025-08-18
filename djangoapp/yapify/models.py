@@ -3,7 +3,7 @@ from django.db import models
 from django.conf import settings
 from django.core.exceptions import ValidationError
 
-from .choices import ProfileColor
+from .choices import ProfileColor, QuoteVisibility
 from .managers import MyUserManager
 from .utils import get_random_color
 from .validators import yapify_username_validator
@@ -25,6 +25,16 @@ class User(AbstractUser):
     # Profile fields
     bio = models.TextField(max_length=500, blank=True, null=True)
     profile_color = models.CharField(choices=ProfileColor, default=get_random_color)
+    quote_visibility = models.CharField(
+        max_length=20,
+        choices=QuoteVisibility.choices,
+        default=QuoteVisibility.EXTENDED,
+        help_text=(
+            "Controls who can see your identity when you are quoted by someone else. "
+            "Mutual Friends Only = only people who are friends with both you and the poster. "
+            "Friends of Friends = also visible to the poster’s friends who may not know you."
+        ),
+    )
 
     objects = MyUserManager()
 
@@ -122,20 +132,9 @@ class Quote(models.Model):
         related_name='quotes_about_me',
         help_text="User who said the quote"
     )
-    context = models.TextField(
-        max_length=500,
-        blank=True,
-        help_text="Optional context about when/where the quote was said"
-    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_active = models.BooleanField(default=True)
-
-    # Privacy settings
-    is_public = models.BooleanField(
-        default=False,
-        help_text="Whether the quote is visible to all users or just friends"
-    )
 
     class Meta:
         ordering = ['-created_at']
