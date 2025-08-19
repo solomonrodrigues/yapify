@@ -1,5 +1,6 @@
 # views.py
-from rest_framework import generics, status, permissions, exceptions
+from rest_framework import generics, status, permissions, exceptions, filters
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -11,6 +12,13 @@ from .serializers import (
     FriendRequestSerializer, QuoteSerializer, QuoteWitnessSerializer,
     NotificationSerializer, CustomTokenObtainPairSerializer
 )
+
+
+class StandardResultsPagination(PageNumberPagination):
+    """Standard pagination configuration"""
+    page_size = 20
+    page_size_query_param = 'page_size'
+    max_page_size = 100
 
 
 class RegisterView(generics.CreateAPIView):
@@ -45,29 +53,44 @@ class ProfileView(generics.RetrieveUpdateAPIView):
 
 
 class UserSearchView(generics.ListAPIView):
-    """Search users by email or name"""
+    """Search users by username or display name (email excluded for privacy)"""
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardResultsPagination
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['username', 'display_name']
 
     def get_queryset(self):
-        query = self.request.query_params.get('q', '')
+        query = self.request.query_params.get('search', '')
         if not query:
             return User.objects.none()
 
         return User.objects.filter(
-            Q(email__icontains=query) |
             Q(username__icontains=query) |
             Q(display_name__icontains=query)
-        ).exclude(id=self.request.user.id)[:20]
+        ).exclude(id=self.request.user.id)
 
 
 class FriendListView(generics.ListAPIView):
-    """List user's friends"""
+    """List and search user's friends"""
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardResultsPagination
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['username', 'display_name']
 
     def get_queryset(self):
-        return self.request.user.get_friends()
+        friends_queryset = self.request.user.get_friends()
+
+        # Apply search if provided
+        search_query = self.request.query_params.get('search', '')
+        if search_query:
+            friends_queryset = friends_queryset.filter(
+                Q(username__icontains=search_query) |
+                Q(display_name__icontains=search_query)
+            )
+
+        return friends_queryset
 
 
 class FriendRequestListView(generics.ListAPIView):
