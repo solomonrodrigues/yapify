@@ -63,6 +63,7 @@ class PublicUserSerializer(serializers.ModelSerializer):
     # Basic public user info
     username = serializers.CharField(read_only=True)
     display_name = serializers.CharField(read_only=True)
+    profile_color = serializers.CharField(read_only=True)
 
     # Quote statistics - public info
     total_quotes_posted = serializers.SerializerMethodField()
@@ -81,7 +82,7 @@ class PublicUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'id', 'username', 'display_name', 'date_joined',
+            'id', 'username', 'display_name', 'profile_color', 'date_joined',
             'total_quotes_posted', 'total_quotes_received',
             'recent_quotes_posted', 'is_friend', 'quotes_i_made_about_user'
         ]
