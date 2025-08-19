@@ -1,16 +1,17 @@
 # views.py
 from rest_framework import generics, status, permissions, exceptions, filters
+from rest_framework.exceptions import NotFound
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.shortcuts import get_object_or_404
-from django.db.models import Q, Max
+from django.db.models import Q, Max, Prefetch
 from djangoapp.yapify.models import User, Friendship, Quote, QuoteWitness, QuoteLike, Notification
 from .serializers import (
     UserRegistrationSerializer, UserSerializer, FriendshipSerializer,
     FriendRequestSerializer, QuoteSerializer, QuoteWitnessSerializer,
-    NotificationSerializer, CustomTokenObtainPairSerializer
+    NotificationSerializer, CustomTokenObtainPairSerializer, PublicUserSerializer
 )
 
 
@@ -111,6 +112,43 @@ class RecentQuotedFriendsView(generics.ListAPIView):
         ).order_by('-latest_quote_date')[:5]
 
         return quoted_friends
+
+
+class UserDetailView(generics.RetrieveAPIView):
+    """Retrieve public details about any user"""
+    serializer_class = PublicUserSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    lookup_field = 'id'
+    lookup_url_kwarg = 'user_id'
+
+    def get_queryset(self):
+        """Allow access to all active users"""
+        return User.objects.filter(is_active=True)
+
+    def get_object(self):
+        """Get user object with optimized queries"""
+        user_id = self.kwargs.get('user_id')
+
+        try:
+            # Prefetch related quotes for efficiency
+            user = self.get_queryset().prefetch_related(
+                'posted_quotes',
+                Prefetch(
+                    'quotes_about_me',
+                    queryset=Quote.objects.filter(is_active=True)
+                )
+            ).get(id=user_id)
+
+            return user
+
+        except User.DoesNotExist:
+            raise NotFound("User not found.")
+
+    def get_serializer_context(self):
+        """Add request to serializer context"""
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
 
 
 class FriendRequestListView(generics.ListAPIView):
