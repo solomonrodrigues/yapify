@@ -179,6 +179,9 @@ class Quote(models.Model):
         who = self.quoted_user if self.quoted_user else self.quoted_name
         return f'"{self.text[:50]}..." - {who} (by {self.author})'
 
+    def has_real_user(self):
+        return self.quoted_user is not None
+
     def get_witness_count(self):
         """Return the number of witnesses for this quote"""
         return self.witnesses.filter(is_witness=True).count()
@@ -230,14 +233,17 @@ class QuoteWitness(models.Model):
             models.Q(sender=self.quote.author, receiver=self.witness, status='accepted')
         ).exists()
 
-        is_friend_of_quoted_user = False
-        if self.quote.quoted_user is not None:
+        has_real_user = self.quote.has_real_user()
+
+        if has_real_user:
             is_friend_of_quoted_user = Friendship.objects.filter(
                 models.Q(sender=self.witness, receiver=self.quote.quoted_user, status='accepted') |
                 models.Q(sender=self.quote.quoted_user, receiver=self.witness, status='accepted')
             ).exists()
+        else:
+            is_friend_of_quoted_user = False
 
-        if not (is_friend_of_author or is_friend_of_quoted_user):
+        if not (is_friend_of_author or (has_real_user and is_friend_of_quoted_user)):
             raise ValidationError("You can only witness quotes involving your friends.")
 
     def save(self, *args, **kwargs):
