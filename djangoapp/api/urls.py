@@ -17,7 +17,10 @@ urlpatterns = [
 
     # User profile
     path('profile/', views.ProfileView.as_view(), name='profile'),
+
+    # Users
     path('users/search/', views.UserSearchView.as_view(), name='user_search'),
+    path('users/<int:user_id>/', views.UserDetailView.as_view(), name='user-detail'),
 
     # Friends
     path('friends/', views.FriendListView.as_view(), name='friend_list'),
