@@ -55,7 +55,7 @@ class ProfileView(generics.RetrieveUpdateAPIView):
 
 class UserSearchView(generics.ListAPIView):
     """Search users by username or display name"""
-    serializer_class = UserSerializer
+    serializer_class = PublicUserSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = StandardResultsPagination
     filter_backends = [filters.SearchFilter]
@@ -74,7 +74,7 @@ class UserSearchView(generics.ListAPIView):
 
 class FriendListView(generics.ListAPIView):
     """List and search user's friends"""
-    serializer_class = UserSerializer
+    serializer_class = PublicUserSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = StandardResultsPagination
     filter_backends = [filters.SearchFilter]
@@ -96,7 +96,7 @@ class FriendListView(generics.ListAPIView):
 
 class RecentQuotedFriendsView(generics.ListAPIView):
     """List up to 5 most recent friends that the user has made quotes for"""
-    serializer_class = UserSerializer
+    serializer_class = PublicUserSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
