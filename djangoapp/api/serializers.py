@@ -11,8 +11,8 @@ class MinimalUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'display_name', 'quote_visibility')
-        read_only_fields = ('id', 'username', 'display_name', 'quote_visibility')
+        fields = ('id', 'username', 'display_name', 'quote_visibility', 'profile_color')
+        read_only_fields = ('id', 'username', 'display_name', 'quote_visibility', 'profile_color')
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -47,8 +47,8 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('id', 'email', 'username', 'display_name',
-                  'bio', 'date_joined', 'friends_count', 'quotes_count', 'quote_visibility')
+        fields = ('id', 'email', 'username', 'display_name', 'bio', 'date_joined',
+                  'friends_count', 'quotes_count', 'quote_visibility', 'profile_color')
         read_only_fields = ('id', 'email', 'date_joined')
 
     def get_friends_count(self, obj):
