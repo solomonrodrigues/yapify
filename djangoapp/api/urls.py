@@ -21,6 +21,7 @@ urlpatterns = [
 
     # Friends
     path('friends/', views.FriendListView.as_view(), name='friend_list'),
+    path('friends/recent-quoted/', views.RecentQuotedFriendsView.as_view(), name='recent-quoted-friends'),
     path('friends/requests/', views.FriendRequestListView.as_view(), name='friend_requests'),
     path('friends/send/', views.SendFriendRequestView.as_view(), name='send_friend_request'),
     path('friends/respond/<int:friendship_id>/', views.RespondToFriendRequestView.as_view(),

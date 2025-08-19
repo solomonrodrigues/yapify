@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.shortcuts import get_object_or_404
-from django.db.models import Q
+from django.db.models import Q, Max
 from djangoapp.yapify.models import User, Friendship, Quote, QuoteWitness, QuoteLike, Notification
 from .serializers import (
     UserRegistrationSerializer, UserSerializer, FriendshipSerializer,
@@ -53,7 +53,7 @@ class ProfileView(generics.RetrieveUpdateAPIView):
 
 
 class UserSearchView(generics.ListAPIView):
-    """Search users by username or display name (email excluded for privacy)"""
+    """Search users by username or display name"""
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = StandardResultsPagination
@@ -91,6 +91,26 @@ class FriendListView(generics.ListAPIView):
             )
 
         return friends_queryset
+
+
+class RecentQuotedFriendsView(generics.ListAPIView):
+    """List up to 5 most recent friends that the user has made quotes for"""
+    serializer_class = UserSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        # Get user's friends who have been quoted, ordered by most recent quote
+        user_friends = self.request.user.get_friends()
+
+        # Get friends that have been quoted by this user, ordered by most recent quote
+        quoted_friends = user_friends.filter(
+            quotes_about_me__author=self.request.user,
+            quotes_about_me__is_active=True
+        ).annotate(
+            latest_quote_date=Max('quotes_about_me__created_at')
+        ).order_by('-latest_quote_date')[:5]
+
+        return quoted_friends
 
 
 class FriendRequestListView(generics.ListAPIView):
