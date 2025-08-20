@@ -82,7 +82,7 @@ class FriendRequestSerializer(serializers.ModelSerializer):
         fields = ('receiver_id',)
 
     def create(self, validated_data):
-        receiver = User.objects.get(id=self.receiver_id)
+        receiver = validated_data['receiver_id']
         friendship = Friendship.objects.create(
             sender=self.context['request'].user,
             receiver=receiver
