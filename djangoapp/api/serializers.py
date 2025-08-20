@@ -1,9 +1,11 @@
 # serializers.py
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from djangoapp.yapify.models import User, Friendship, Quote, QuoteWitness, QuoteLike, Notification
+from django.db.models import Q
 
 
 class MinimalUserSerializer(serializers.ModelSerializer):
@@ -58,77 +60,6 @@ class UserSerializer(serializers.ModelSerializer):
         return obj.quotes_about_me.filter(is_active=True).count()
 
 
-class PublicUserSerializer(serializers.ModelSerializer):
-    """Public serializer for viewing other users' details"""
-    # Basic public user info
-    username = serializers.CharField(read_only=True)
-    display_name = serializers.CharField(read_only=True)
-    profile_color = serializers.CharField(read_only=True)
-
-    # Quote statistics - public info
-    total_quotes_posted = serializers.SerializerMethodField()
-    total_quotes_received = serializers.SerializerMethodField()
-
-    # Recent public quotes (limit to 10 most recent)
-    recent_quotes_posted = serializers.SerializerMethodField()
-
-    # Relationship info with current user
-    is_friend = serializers.SerializerMethodField()
-    quotes_i_made_about_user = serializers.SerializerMethodField()
-
-    # Join date
-    date_joined = serializers.DateTimeField(read_only=True)
-
-    class Meta:
-        model = User
-        fields = [
-            'id', 'username', 'display_name', 'profile_color', 'date_joined',
-            'total_quotes_posted', 'total_quotes_received',
-            'recent_quotes_posted', 'is_friend', 'quotes_i_made_about_user'
-        ]
-
-    def get_current_user(self):
-        """Get the current authenticated user from context"""
-        return self.context['request'].user
-
-    def get_total_quotes_posted(self, obj):
-        """Total quotes this user has posted"""
-        return obj.posted_quotes.filter(is_active=True).count()
-
-    def get_total_quotes_received(self, obj):
-        """Total quotes about this user"""
-        return obj.quotes_about_me.filter(is_active=True).count()
-
-    def get_recent_quotes_posted(self, obj):
-        """Recent quotes posted by this user (limit 10)"""
-        recent_quotes = obj.posted_quotes.filter(
-            is_active=True
-        ).order_by('-created_at')[:10]
-        return QuoteSerializer(recent_quotes, many=True).data
-
-    def get_is_friend(self, obj):
-        """Check if current user is friends with this user"""
-        current_user = self.get_current_user()
-        if current_user == obj:
-            return None  # Viewing own profile
-
-        # Check if they are friends
-        user_friends = current_user.get_friends()
-        return user_friends.filter(id=obj.id).exists()
-
-    def get_quotes_i_made_about_user(self, obj):
-        """Quotes the current user has made about this user (limit 10)"""
-        current_user = self.get_current_user()
-        if current_user == obj:
-            return []  # Don't show quotes about yourself when viewing own profile
-
-        my_quotes_about_user = obj.quotes_about_me.filter(
-            author=current_user,
-            is_active=True
-        ).order_by('-created_at')[:10]
-        return QuoteSerializer(my_quotes_about_user, many=True).data
-
-
 class FriendshipSerializer(serializers.ModelSerializer):
     """Serializer for friendship relationships"""
     sender = MinimalUserSerializer(read_only=True)
@@ -137,41 +68,21 @@ class FriendshipSerializer(serializers.ModelSerializer):
     class Meta:
         model = Friendship
         fields = ('id', 'sender', 'receiver', 'status', 'created_at', 'updated_at')
-        read_only_fields = ('id', 'sender', 'created_at', 'updated_at')
+        read_only_fields = ('id', 'sender', 'receiver', 'created_at', 'updated_at')
 
 
 class FriendRequestSerializer(serializers.ModelSerializer):
     """Serializer for sending friend requests"""
-    receiver_email = serializers.EmailField(write_only=True)
+    receiver_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(), write_only=True, required=True, allow_null=False
+    )
 
     class Meta:
         model = Friendship
-        fields = ('receiver_email',)
-
-    def validate_receiver_email(self, value):
-        try:
-            receiver = User.objects.get(email=value)
-        except User.DoesNotExist:
-            raise serializers.ValidationError("User with this email does not exist")
-
-        sender = self.context['request'].user
-        if sender == receiver:
-            raise serializers.ValidationError("You cannot send a friend request to yourself")
-
-        # Check if friendship already exists
-        existing_friendship = Friendship.objects.filter(
-            sender=sender, receiver=receiver
-        ).first() or Friendship.objects.filter(
-            sender=receiver, receiver=sender
-        ).first()
-
-        if existing_friendship:
-            raise serializers.ValidationError("Friendship request already exists")
-
-        return value
+        fields = ('receiver_id',)
 
     def create(self, validated_data):
-        receiver = User.objects.get(email=validated_data['receiver_email'])
+        receiver = User.objects.get(id=self.receiver_id)
         friendship = Friendship.objects.create(
             sender=self.context['request'].user,
             receiver=receiver
@@ -241,6 +152,84 @@ class QuoteLikeSerializer(serializers.ModelSerializer):
         model = QuoteLike
         fields = ('id', 'user', 'created_at')
         read_only_fields = ('id', 'user', 'created_at')
+
+
+class PublicUserSerializer(serializers.ModelSerializer):
+    """Public serializer for viewing other users' details"""
+    # Basic public user info
+    username = serializers.CharField(read_only=True)
+    display_name = serializers.CharField(read_only=True)
+    profile_color = serializers.CharField(read_only=True)
+
+    # Quote statistics - public info
+    total_quotes_posted = serializers.SerializerMethodField()
+    total_quotes_received = serializers.SerializerMethodField()
+
+    # Recent public quotes (limit to 10 most recent)
+    recent_quotes_posted = serializers.SerializerMethodField()
+
+    # Relationship info with current user
+    friendship = serializers.SerializerMethodField()
+    quotes_i_made_about_user = serializers.SerializerMethodField()
+
+    # Join date
+    date_joined = serializers.DateTimeField(read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            'id', 'username', 'display_name', 'profile_color', 'date_joined',
+            'total_quotes_posted', 'total_quotes_received',
+            'recent_quotes_posted', 'friendship', 'quotes_i_made_about_user'
+        ]
+
+    def get_current_user(self):
+        """Get the current authenticated user from context"""
+        return self.context['request'].user
+
+    def get_total_quotes_posted(self, obj):
+        """Total quotes this user has posted"""
+        return obj.posted_quotes.filter(is_active=True).count()
+
+    def get_total_quotes_received(self, obj):
+        """Total quotes about this user"""
+        return obj.quotes_about_me.filter(is_active=True).count()
+
+    @extend_schema_field(QuoteSerializer(many=True))
+    def get_recent_quotes_posted(self, obj):
+        """Recent quotes posted by this user (limit 10)"""
+        recent_quotes = obj.posted_quotes.filter(
+            is_active=True
+        ).order_by('-created_at')[:10]
+        return QuoteSerializer(recent_quotes, many=True).data
+
+    @extend_schema_field(FriendshipSerializer(many=False, allow_null=True))
+    def get_friendship(self, obj):
+        """Return friendship object (if exists) between current user and this user"""
+        current_user = self.get_current_user()
+        if current_user == obj:
+            return None  # Don't return friendship with yourself
+
+        friendship = Friendship.objects.filter(
+            Q(sender=current_user, receiver=obj) |
+            Q(sender=obj, receiver=current_user)
+        ).first()
+
+        if friendship:
+            return FriendshipSerializer(friendship).data
+        return None
+
+    def get_quotes_i_made_about_user(self, obj):
+        """Quotes the current user has made about this user (limit 10)"""
+        current_user = self.get_current_user()
+        if current_user == obj:
+            return []  # Don't show quotes about yourself when viewing own profile
+
+        my_quotes_about_user = obj.quotes_about_me.filter(
+            author=current_user,
+            is_active=True
+        ).order_by('-created_at')[:10]
+        return QuoteSerializer(my_quotes_about_user, many=True).data
 
 
 class NotificationSerializer(serializers.ModelSerializer):
