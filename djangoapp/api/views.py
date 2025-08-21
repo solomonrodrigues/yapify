@@ -1,4 +1,5 @@
 # views.py
+from django.utils import timezone
 from rest_framework import generics, status, permissions, exceptions, filters
 from rest_framework.exceptions import NotFound
 from rest_framework.pagination import PageNumberPagination
@@ -7,12 +8,14 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.shortcuts import get_object_or_404
 from django.db.models import Q, Max, Prefetch
-from djangoapp.yapify.models import User, Friendship, Quote, QuoteWitness, QuoteLike, Notification
+from djangoapp.yapify.models import User, Friendship, Quote, QuoteWitness, QuoteLike, Notification, EmailVerification
 from .serializers import (
     UserRegistrationSerializer, UserSerializer, FriendshipSerializer,
     FriendRequestSerializer, QuoteSerializer, QuoteWitnessSerializer,
-    NotificationSerializer, CustomTokenObtainPairSerializer, PublicUserSerializer
+    NotificationSerializer, CustomTokenObtainPairSerializer, PublicUserSerializer, ResendVerificationSerializer,
+    VerifyEmailSerializer
 )
+from .utils import send_verification_email, normalize_email
 
 
 class StandardResultsPagination(PageNumberPagination):
@@ -37,6 +40,62 @@ class RegisterView(generics.CreateAPIView):
                 'message': 'User created successfully'
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class VerifyEmailView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        s = VerifyEmailSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        email = normalize_email(s.validated_data['email'])
+        code = s.validated_data['code']
+
+        try:
+            user = User.objects.get(email__iexact=email)
+        except User.DoesNotExist:
+            # Don’t leak existence
+            return Response({"detail": "Invalid or expired code."}, status=status.HTTP_400_BAD_REQUEST)
+
+        ver = (
+            EmailVerification.objects
+            .filter(user=user, used_at__isnull=True)
+            .order_by('-created_at')
+            .first()
+        )
+        if not ver or not ver.is_valid() or not ver.matches(code):
+            return Response({"detail": "Invalid or expired code."}, status=status.HTTP_400_BAD_REQUEST)
+
+        ver.used_at = timezone.now()
+        ver.save(update_fields=['used_at'])
+
+        if not getattr(user, "is_email_verified", False):
+            user.is_email_verified = True
+            user.save(update_fields=['is_email_verified'])
+
+        return Response({"detail": "Email verified."}, status=status.HTTP_200_OK)
+
+
+class ResendVerificationView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        s = ResendVerificationSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        email = normalize_email(s.validated_data['email'])
+
+        try:
+            user = User.objects.get(email__iexact=email)
+        except User.DoesNotExist:
+            # Silent success to avoid enumeration
+            return Response({"detail": "If an account exists, a code has been sent."}, status=status.HTTP_200_OK)
+
+        if getattr(user, "is_email_verified", False):
+            return Response({"detail": "Email already verified."}, status=status.HTTP_400_BAD_REQUEST)
+
+        ver, code = EmailVerification.create_for(user)
+        send_verification_email(user, code)
+        return Response({"detail": "Verification code sent."}, status=status.HTTP_200_OK)
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):

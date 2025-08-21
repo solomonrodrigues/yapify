@@ -42,6 +42,15 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return user
 
 
+class VerifyEmailSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    code = serializers.CharField(max_length=8)
+
+
+class ResendVerificationSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
 class UserSerializer(serializers.ModelSerializer):
     """Serializer for user profile"""
     friends_count = serializers.SerializerMethodField()

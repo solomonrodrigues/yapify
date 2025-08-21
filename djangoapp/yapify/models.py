@@ -1,7 +1,12 @@
-from django.contrib.auth.models import AbstractUser
-from django.db import models
+import random
+from datetime import timedelta
+
 from django.conf import settings
+from django.contrib.auth.hashers import make_password, check_password
+from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
+from django.db import models
+from django.utils import timezone
 
 from .choices import ProfileColor, QuoteVisibility
 from .managers import MyUserManager
@@ -21,6 +26,7 @@ class User(AbstractUser):
         unique=True,
         validators=[yapify_username_validator]
     )
+    is_email_verified = models.BooleanField(default=False)
 
     # Profile fields
     bio = models.TextField(max_length=500, blank=True, null=True)
@@ -57,6 +63,30 @@ class User(AbstractUser):
     def get_pending_friend_requests(self):
         """Return pending friend requests received by this user"""
         return Friendship.objects.filter(receiver=self, status='pending')
+
+
+class EmailVerification(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='email_verifications')
+    code_hash = models.CharField(max_length=256)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    @classmethod
+    def create_for(cls, user, ttl_minutes: int = 15):
+        code = f"{random.randint(0, 999999):06d}"
+        obj = cls.objects.create(
+            user=user,
+            code_hash=make_password(code),
+            expires_at=timezone.now() + timedelta(minutes=ttl_minutes)
+        )
+        return obj, code  # return plaintext so the caller can email it
+
+    def is_valid(self) -> bool:
+        return self.used_at is None and timezone.now() <= self.expires_at
+
+    def matches(self, code: str) -> bool:
+        return check_password(code, self.code_hash)
 
 
 class Friendship(models.Model):
