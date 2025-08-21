@@ -35,9 +35,11 @@ class RegisterView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
+            ver, code = EmailVerification.create_for(user)
+            send_verification_email(user, code)
             return Response({
                 'user': UserSerializer(user).data,
-                'message': 'User created successfully'
+                'message': 'User created successfully. Verification code sent to email.'
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
