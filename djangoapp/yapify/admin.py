@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils.translation import gettext_lazy as _
-from .models import User, Friendship, Quote, QuoteWitness, QuoteLike, Notification
+from .models import User, Friendship, Quote, QuoteWitness, QuoteLike, Notification, EmailVerification
 
 
 @admin.register(User)
@@ -24,6 +24,31 @@ class UserAdmin(BaseUserAdmin):
     filter_horizontal = ('groups', 'user_permissions')
     list_filter = ('is_active', 'is_staff', 'is_superuser')
     readonly_fields = ('date_joined',)
+
+
+@admin.register(EmailVerification)
+class EmailVerificationAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "user",
+        "created_at",
+        "expires_at",
+        "used_at",
+        "is_valid_display",
+    )
+    list_filter = ("created_at", "expires_at", "used_at")
+    search_fields = ("user__username", "user__email")
+    readonly_fields = ("code_hash", "created_at", "used_at", "expires_at")
+
+    def is_valid_display(self, obj):
+        return obj.is_valid()
+    is_valid_display.boolean = True
+    is_valid_display.short_description = "Is Valid?"
+
+    def get_queryset(self, request):
+        # Prefetch related users to make the list faster
+        qs = super().get_queryset(request)
+        return qs.select_related("user")
 
 
 @admin.register(Friendship)
