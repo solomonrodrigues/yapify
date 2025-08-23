@@ -29,3 +29,5 @@ DATABASES = {
         'PORT': os.environ["PGPORT"],
     }
 }
+
+EMAIL_BACKEND = 'post_office.EmailBackend'

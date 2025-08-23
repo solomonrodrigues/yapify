@@ -22,6 +22,7 @@ INSTALLED_APPS += [  # Third party apps
     'rest_framework_simplejwt.token_blacklist',
     'corsheaders',  # for mobile app CORS
     'drf_spectacular',
+    'post_office',
 ]
 INSTALLED_APPS += [  # Custom apps
     'djangoapp.api',
@@ -142,7 +143,6 @@ SIMPLE_JWT = {
 CORS_ALLOW_ALL_ORIGINS = True
 
 # Email backend for development
-# ToDo: Set up email backend for production
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 # drf-spectacular ships with sane default settings that should work reasonably well out of the box.
