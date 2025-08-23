@@ -14,6 +14,8 @@ urlpatterns = [
     path('auth/register/', views.RegisterView.as_view(), name='register'),
     path('auth/login/', views.CustomTokenObtainPairView.as_view(), name='login'),
     path('auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('auth/verify-email/', views.VerifyEmailView.as_view(), name='verify_email'),
+    path('auth/resend-verification/', views.ResendVerificationView.as_view(), name='resend_verification'),
 
     # User profile
     path('profile/', views.ProfileView.as_view(), name='profile'),

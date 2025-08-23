@@ -92,7 +92,7 @@ class ResendVerificationView(APIView):
             # Silent success to avoid enumeration
             return Response({"detail": "If an account exists, a code has been sent."}, status=status.HTTP_200_OK)
 
-        if getattr(user, "is_email_verified", False):
+        if user.is_email_verified:
             return Response({"detail": "Email already verified."}, status=status.HTTP_400_BAD_REQUEST)
 
         ver, code = EmailVerification.create_for(user)
