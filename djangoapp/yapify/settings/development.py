@@ -25,3 +25,10 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+# For development: don’t send real emails
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+POST_OFFICE = {
+    "DEFAULT_PRIORITY": "now",
+}

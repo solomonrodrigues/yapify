@@ -30,4 +30,17 @@ DATABASES = {
     }
 }
 
-EMAIL_BACKEND = 'post_office.EmailBackend'
+EMAIL_BACKEND = "post_office.EmailBackend"
+
+POST_OFFICE = {
+    "DEFAULT_PRIORITY": "now",
+}
+
+# Mailgun SMTP settings
+EMAIL_HOST = "smtp.mailgun.org"
+EMAIL_PORT = 587
+EMAIL_HOST_USER = "postmaster@YOUR_DOMAIN.mailgun.org"
+EMAIL_HOST_PASSWORD = os.environ["MAILGUN_PASSWORD"]
+EMAIL_USE_TLS = True
+
+DEFAULT_FROM_EMAIL = "donotreply@yapify-production.up.railway.app"

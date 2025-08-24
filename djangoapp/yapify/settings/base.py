@@ -142,8 +142,14 @@ SIMPLE_JWT = {
 # ToDo: Handle cors allowed origins for production
 CORS_ALLOW_ALL_ORIGINS = True
 
-# Email backend for development
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# By default, send via Post Office
+EMAIL_BACKEND = "post_office.EmailBackend"
+
+POST_OFFICE = {
+    "DEFAULT_PRIORITY": "medium", # Default to queued
+}
+
+DEFAULT_FROM_EMAIL = "noreply@example.com"
 
 # drf-spectacular ships with sane default settings that should work reasonably well out of the box.
 # It is not necessary to specify any settings, but it's recommended to specify at least some metadata.
