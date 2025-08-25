@@ -39,7 +39,7 @@ class EmailVerificationAdmin(admin.ModelAdmin):
     )
     list_filter = ("created_at", "expires_at", "used_at")
     search_fields = ("user__username", "user__email")
-    readonly_fields = ("code_hash", "created_at", "used_at", "expires_at")
+    readonly_fields = ("code_hash", "created_at", "expires_at")
 
     def is_valid_display(self, obj):
         return obj.is_valid()
