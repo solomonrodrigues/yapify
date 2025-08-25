@@ -12,9 +12,10 @@ if not DEBUG:
         send_default_pii=True,
     )
 
-ALLOWED_HOSTS = ['yapify-production.up.railway.app', 'yapify.net']
+ALLOWED_HOSTS = ['yapify.up.railway.app', 'yapify.net']
 CSRF_TRUSTED_ORIGINS = [
-    'https://yapify-production.up.railway.app',
+    'https://yapify.up.railway.app',
+    'https://yapify.net',
 ]
 
 WSGI_APPLICATION = 'djangoapp.yapify.wsgi.application'
