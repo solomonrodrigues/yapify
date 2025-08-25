@@ -27,8 +27,8 @@ DATABASES = {
 }
 
 # For development: don’t send real emails
+EMAILS_ENABLED = False
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-
 POST_OFFICE = {
     "DEFAULT_PRIORITY": "now",
 }
