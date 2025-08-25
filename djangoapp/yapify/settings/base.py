@@ -148,7 +148,7 @@ EMAILS_ENABLED = False
 EMAIL_BACKEND = "post_office.EmailBackend"
 
 POST_OFFICE = {
-    "DEFAULT_PRIORITY": "medium", # Default to queued
+    "DEFAULT_PRIORITY": "medium",  # Default to queued
 }
 
 DEFAULT_FROM_EMAIL = "noreply@example.com"

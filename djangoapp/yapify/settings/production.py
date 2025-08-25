@@ -12,9 +12,8 @@ if not DEBUG:
         send_default_pii=True,
     )
 
-ALLOWED_HOSTS = ['yapify.up.railway.app', 'yapify.net']
+ALLOWED_HOSTS = ['yapify.net',]
 CSRF_TRUSTED_ORIGINS = [
-    'https://yapify.up.railway.app',
     'https://yapify.net',
 ]
 
