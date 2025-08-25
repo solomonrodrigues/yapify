@@ -142,6 +142,8 @@ SIMPLE_JWT = {
 # ToDo: Handle cors allowed origins for production
 CORS_ALLOW_ALL_ORIGINS = True
 
+EMAILS_ENABLED = False
+
 # By default, send via Post Office
 EMAIL_BACKEND = "post_office.EmailBackend"
 
