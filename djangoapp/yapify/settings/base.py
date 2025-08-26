@@ -161,4 +161,7 @@ SPECTACULAR_SETTINGS = {
     'SERVE_PERMISSIONS': [
         'rest_framework.permissions.IsAdminUser',
     ],
+    "SERVE_AUTHENTICATION": [
+        "rest_framework.authentication.SessionAuthentication"
+    ],
 }
