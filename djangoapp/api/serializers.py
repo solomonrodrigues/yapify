@@ -133,13 +133,13 @@ class QuoteSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ('id', 'author', 'created_at', 'updated_at')
 
-    def get_witness_count(self, obj):
+    def get_witness_count(self, obj) -> int:
         return obj.get_witness_count()
 
-    def get_like_count(self, obj):
+    def get_like_count(self, obj) -> int:
         return obj.likes.count()
 
-    def get_is_liked(self, obj):
+    def get_is_liked(self, obj) -> bool:
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             return obj.likes.filter(user=request.user).exists()
@@ -196,11 +196,11 @@ class PublicUserSerializer(serializers.ModelSerializer):
         """Get the current authenticated user from context"""
         return self.context['request'].user
 
-    def get_total_quotes_posted(self, obj):
+    def get_total_quotes_posted(self, obj) -> int:
         """Total quotes this user has posted"""
         return obj.posted_quotes.filter(is_active=True).count()
 
-    def get_total_quotes_received(self, obj):
+    def get_total_quotes_received(self, obj) -> int:
         """Total quotes about this user"""
         return obj.quotes_about_me.filter(is_active=True).count()
 
@@ -228,6 +228,7 @@ class PublicUserSerializer(serializers.ModelSerializer):
             return FriendshipSerializer(friendship).data
         return None
 
+    @extend_schema_field(QuoteSerializer(many=True))
     def get_quotes_i_made_about_user(self, obj):
         """Quotes the current user has made about this user (limit 10)"""
         current_user = self.get_current_user()
