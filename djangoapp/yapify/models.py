@@ -72,12 +72,20 @@ class User(AbstractUser):
         """Return friends, filtering out inactive or unverified."""
         return self.get_friends().filter(is_active=True, is_email_verified=True)
 
-    def get_random_guess_options(self, exclude=None, count=3):
-        """Return random friends for multiple choice, optionally excluding some."""
-        friends = self.get_valid_friends()
+    def get_random_guess_options(self, exclude=None, count=3, seed=None):
+        """Return random friends for multiple choice, optionally excluding some.
+        Deterministic if `seed` is provided.
+        """
+        friends = list(self.get_valid_friends())
         if exclude:
             friends = [f for f in friends if f not in exclude]
-        return random.sample(friends, min(len(friends), count))
+
+        if not friends:
+            return []
+
+        rng = random.Random(seed) if seed is not None else random
+        # sample without replacement
+        return rng.sample(friends, min(len(friends), count))
 
     def increment_streak(self):
         self.current_streak += 1

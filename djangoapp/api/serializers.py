@@ -1,4 +1,7 @@
 # serializers.py
+from typing import List, Optional
+import random
+
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -113,6 +116,38 @@ class QuoteWitnessSerializer(serializers.ModelSerializer):
         read_only_fields = ('id', 'witness', 'created_at')
 
 
+class QuoteGuessSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = QuoteGuess
+        fields = ["id", "user", "quote", "guessed_user", "correct", "skipped", "created_at"]
+        read_only_fields = ["id", "correct", "created_at", "user"]
+
+    def validate(self, data):
+        request = self.context["request"]
+        user = request.user
+
+        # enforce skip limit
+        if data.get("skipped"):
+            from django.conf import settings
+            from django.utils.timezone import now
+            from datetime import timedelta
+
+            week_ago = now() - timedelta(days=7)
+            skips_this_week = QuoteGuess.objects.filter(
+                user=user, skipped=True, created_at__gte=week_ago
+            ).count()
+            if skips_this_week >= settings.QUOTE_GUESS_MAX_SKIPS_PER_WEEK:
+                raise serializers.ValidationError(
+                    f"You can only skip {settings.QUOTE_GUESS_MAX_SKIPS_PER_WEEK} times per week."
+                )
+
+        return data
+
+    def create(self, validated_data):
+        validated_data["user"] = self.context["request"].user
+        return super().create(validated_data)
+
+
 class QuoteSerializer(serializers.ModelSerializer):
     """Serializer for quotes"""
     author = MinimalUserSerializer(read_only=True)
@@ -131,6 +166,7 @@ class QuoteSerializer(serializers.ModelSerializer):
     has_guessed = serializers.SerializerMethodField()
     guess = serializers.SerializerMethodField()
     remaining_skips = serializers.SerializerMethodField()
+    guess_options = serializers.SerializerMethodField()
 
     class Meta:
         model = Quote
@@ -161,7 +197,7 @@ class QuoteSerializer(serializers.ModelSerializer):
             return QuoteGuess.objects.filter(user=request.user, quote=obj).exists()
         return False
 
-    def get_guess(self, obj):
+    def get_guess(self, obj) -> Optional[QuoteGuessSerializer]:
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             guess = QuoteGuess.objects.filter(user=request.user, quote=obj).first()
@@ -179,6 +215,28 @@ class QuoteSerializer(serializers.ModelSerializer):
             created_at__year=timezone.now().year
         ).count()
         return max(settings.GUESS_SKIPS_PER_WEEK - used, 0)
+
+    def get_guess_options(self, obj) -> List[MinimalUserSerializer]:
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return []
+
+        user = request.user
+        if not obj.quoted_user:
+            return []
+
+        # deterministic seed per user + quote
+        seed = hash(f"{user.id}-{obj.id}")
+        random_friends = user.get_random_guess_options(exclude=[obj.quoted_user], count=3, seed=seed)
+
+        # Combine correct answer
+        options = random_friends + [obj.quoted_user]
+
+        # shuffle again deterministically
+        rng = random.Random(seed)
+        rng.shuffle(options)
+
+        return MinimalUserSerializer(options, many=True).data
 
     def create(self, validated_data):
         quoted_user = validated_data.pop('quoted_user_id', None)
@@ -325,35 +383,3 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             }
 
         raise serializers.ValidationError('Must include email and password')
-
-
-class QuoteGuessSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = QuoteGuess
-        fields = ["id", "user", "quote", "guessed_user", "correct", "skipped", "created_at"]
-        read_only_fields = ["id", "correct", "created_at", "user"]
-
-    def validate(self, data):
-        request = self.context["request"]
-        user = request.user
-
-        # enforce skip limit
-        if data.get("skipped"):
-            from django.conf import settings
-            from django.utils.timezone import now
-            from datetime import timedelta
-
-            week_ago = now() - timedelta(days=7)
-            skips_this_week = QuoteGuess.objects.filter(
-                user=user, skipped=True, created_at__gte=week_ago
-            ).count()
-            if skips_this_week >= settings.QUOTE_GUESS_MAX_SKIPS_PER_WEEK:
-                raise serializers.ValidationError(
-                    f"You can only skip {settings.QUOTE_GUESS_MAX_SKIPS_PER_WEEK} times per week."
-                )
-
-        return data
-
-    def create(self, validated_data):
-        validated_data["user"] = self.context["request"].user
-        return super().create(validated_data)
