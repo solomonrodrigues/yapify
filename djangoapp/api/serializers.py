@@ -215,7 +215,7 @@ class QuoteSerializer(serializers.ModelSerializer):
             created_at__week=timezone.now().isocalendar().week,
             created_at__year=timezone.now().year
         ).count()
-        return max(settings.GUESS_SKIPS_PER_WEEK - used, 0)
+        return max(settings.QUOTE_GUESS_MAX_SKIPS_PER_WEEK - used, 0)
 
     @extend_schema_field(MinimalUserSerializer(many=True))
     def get_guess_options(self, obj) -> List[MinimalUserSerializer]:
