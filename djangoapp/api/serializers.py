@@ -2,10 +2,14 @@
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
-from djangoapp.yapify.models import User, Friendship, Quote, QuoteWitness, QuoteLike, Notification, QuoteGuess
 from django.db.models import Q
+from django.conf import settings
+from django.utils import timezone
+
+from djangoapp.yapify.models import User, Friendship, Quote, QuoteWitness, QuoteLike, Notification, QuoteGuess
 
 
 class MinimalUserSerializer(serializers.ModelSerializer):
@@ -123,13 +127,19 @@ class QuoteSerializer(serializers.ModelSerializer):
     like_count = serializers.SerializerMethodField()
     is_liked = serializers.SerializerMethodField()
 
+    # Guessing game support
+    has_guessed = serializers.SerializerMethodField()
+    guess = serializers.SerializerMethodField()
+    remaining_skips = serializers.SerializerMethodField()
+
     class Meta:
         model = Quote
         fields = (
             'id', 'text', 'author',
             'quoted_user', 'quoted_user_id', 'quoted_name',
             'created_at', 'updated_at',
-            'witness_count', 'witnesses', 'like_count', 'is_liked'
+            'witness_count', 'witnesses', 'like_count', 'is_liked',
+            'has_guessed', 'guess', 'remaining_skips'
         )
         read_only_fields = ('id', 'author', 'created_at', 'updated_at')
 
@@ -144,6 +154,31 @@ class QuoteSerializer(serializers.ModelSerializer):
         if request and request.user.is_authenticated:
             return obj.likes.filter(user=request.user).exists()
         return False
+
+    def get_has_guessed(self, obj) -> bool:
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return QuoteGuess.objects.filter(user=request.user, quote=obj).exists()
+        return False
+
+    def get_guess(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            guess = QuoteGuess.objects.filter(user=request.user, quote=obj).first()
+            if guess:
+                return QuoteGuessSerializer(guess).data
+        return None
+
+    def get_remaining_skips(self, obj) -> int:
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return 0
+        used = QuoteGuess.objects.filter(
+            user=request.user, skipped=True,
+            created_at__week=timezone.now().isocalendar().week,
+            created_at__year=timezone.now().year
+        ).count()
+        return max(settings.GUESS_SKIPS_PER_WEEK - used, 0)
 
     def create(self, validated_data):
         quoted_user = validated_data.pop('quoted_user_id', None)
