@@ -34,6 +34,9 @@ EMAILS_ENABLED = True
 EMAIL_BACKEND = "post_office.EmailBackend"
 POST_OFFICE = {
     "DEFAULT_PRIORITY": "now",
+    "BACKENDS": {
+        "default": "django.core.mail.backends.smtp.EmailBackend",
+    }
 }
 
 # Mailgun SMTP settings
