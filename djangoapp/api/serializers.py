@@ -175,7 +175,7 @@ class QuoteSerializer(serializers.ModelSerializer):
             'quoted_user', 'quoted_user_id', 'quoted_name',
             'created_at', 'updated_at',
             'witness_count', 'witnesses', 'like_count', 'is_liked',
-            'has_guessed', 'guess', 'remaining_skips'
+            'has_guessed', 'guess', 'remaining_skips', 'guess_options'
         )
         read_only_fields = ('id', 'author', 'created_at', 'updated_at')
 
