@@ -38,6 +38,9 @@ urlpatterns = [
     path('quotes/<int:quote_id>/witness/', views.WitnessQuoteView.as_view(), name='witness_quote'),
     path('quotes/<int:quote_id>/like/', views.LikeQuoteView.as_view(), name='like_quote'),
 
+    # Guesses
+    path("guesses/create/", views.QuoteGuessCreateView.as_view(), name="quote-guess-create"),
+
     # Notifications
     path('notifications/', views.NotificationListView.as_view(), name='notifications'),
     path('notifications/<int:notification_id>/read/', views.MarkNotificationReadView.as_view(),

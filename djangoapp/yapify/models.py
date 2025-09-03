@@ -42,6 +42,10 @@ class User(AbstractUser):
         ),
     )
 
+    # Guess streak
+    current_streak = models.PositiveIntegerField(default=0)
+    longest_streak = models.PositiveIntegerField(default=0)
+
     objects = MyUserManager()
 
     USERNAME_FIELD = 'email'
@@ -63,6 +67,27 @@ class User(AbstractUser):
     def get_pending_friend_requests(self):
         """Return pending friend requests received by this user"""
         return Friendship.objects.filter(receiver=self, status='pending')
+
+    def get_valid_friends(self):
+        """Return friends, filtering out inactive or unverified."""
+        return self.get_friends().filter(is_active=True, is_email_verified=True)
+
+    def get_random_guess_options(self, exclude=None, count=3):
+        """Return random friends for multiple choice, optionally excluding some."""
+        friends = self.get_valid_friends()
+        if exclude:
+            friends = [f for f in friends if f not in exclude]
+        return random.sample(friends, min(len(friends), count))
+
+    def increment_streak(self):
+        self.current_streak += 1
+        if self.current_streak > self.longest_streak:
+            self.longest_streak = self.current_streak
+        self.save()
+
+    def reset_streak(self):
+        self.current_streak = 0
+        self.save()
 
 
 class EmailVerification(models.Model):
@@ -360,3 +385,48 @@ class Notification(models.Model):
         """Mark notification as read"""
         self.is_read = True
         self.save()
+
+
+class QuoteGuess(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="guesses")
+    quote = models.ForeignKey(Quote, on_delete=models.CASCADE, related_name="guesses")
+    guessed_user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="guessed_by",
+        help_text="The friend they guessed. Null if skipped.",
+    )
+    correct = models.BooleanField(null=True, blank=True)
+    skipped = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("user", "quote")
+        ordering = ["-created_at"]
+        verbose_name_plural = "Quote guesses"
+
+    def save(self, *args, **kwargs):
+        if self.skipped:
+            self.guessed_user = None
+            self.correct = None
+        else:
+            # must have guessed_user
+            if not self.guessed_user:
+                raise ValueError("guessed_user required unless skipped=True")
+            # correctness check
+            self.correct = self.guessed_user_id == self.quote.quoted_user_id
+
+        # Handle streak
+        creating = self._state.adding  # only adjust streak on first save
+        super().save(*args, **kwargs)
+
+        if creating:
+            user = self.user
+            if self.skipped:
+                pass  # skip does not break streak, just no increment
+            elif self.correct:
+                user.increment_streak()
+            else:
+                user.reset_streak()  # wrong guess breaks streak

@@ -8,12 +8,13 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.shortcuts import get_object_or_404
 from django.db.models import Q, Max, Prefetch
-from djangoapp.yapify.models import User, Friendship, Quote, QuoteWitness, QuoteLike, Notification, EmailVerification
+from djangoapp.yapify.models import User, Friendship, Quote, QuoteWitness, QuoteLike, Notification, EmailVerification, \
+    QuoteGuess
 from .serializers import (
     UserRegistrationSerializer, UserSerializer, FriendshipSerializer,
     FriendRequestSerializer, QuoteSerializer, QuoteWitnessSerializer,
     NotificationSerializer, CustomTokenObtainPairSerializer, PublicUserSerializer, ResendVerificationSerializer,
-    VerifyEmailSerializer
+    VerifyEmailSerializer, QuoteGuessSerializer
 )
 from .utils import send_verification_email, normalize_email
 
@@ -424,3 +425,9 @@ class MarkNotificationReadView(APIView):
         )
         notification.mark_as_read()
         return Response({'message': 'Notification marked as read'})
+
+
+class QuoteGuessCreateView(generics.CreateAPIView):
+    queryset = QuoteGuess.objects.all()
+    serializer_class = QuoteGuessSerializer
+    permission_classes = [permissions.IsAuthenticated]

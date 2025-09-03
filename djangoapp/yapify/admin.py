@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils.translation import gettext_lazy as _
-from .models import User, Friendship, Quote, QuoteWitness, QuoteLike, Notification, EmailVerification
+from .models import User, Friendship, Quote, QuoteWitness, QuoteLike, Notification, EmailVerification, QuoteGuess
 
 
 @admin.register(User)
@@ -12,6 +12,7 @@ class UserAdmin(BaseUserAdmin):
         (_('Permissions'), {'fields': ('is_active', 'is_email_verified', 'is_staff', 'is_superuser', 'groups',
                                        'user_permissions')}),
         (_('Important dates'), {'fields': ('last_login', 'date_joined')}),
+        (_('Other'), {'fields': ('profile_color', 'current_streak', 'longest_streak')}),
     )
     add_fieldsets = (
         (None, {
@@ -91,3 +92,30 @@ class NotificationAdmin(admin.ModelAdmin):
     search_fields = ('recipient__email', 'sender__email', 'title')
     autocomplete_fields = ('recipient', 'sender', 'quote', 'friendship')
     readonly_fields = ('created_at',)
+
+
+@admin.register(QuoteGuess)
+class QuoteGuessAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "user",
+        "quote_short",
+        "guessed_user",
+        "correct",
+        "skipped",
+        "created_at",
+    )
+    list_filter = ("correct", "skipped", "created_at")
+    search_fields = (
+        "user__username",
+        "user__email",
+        "quote__text",
+        "guessed_user__username",
+        "guessed_user__email",
+    )
+    autocomplete_fields = ("user", "quote", "guessed_user")
+    readonly_fields = ("correct", "created_at")
+
+    def quote_short(self, obj):
+        return (obj.quote.text[:50] + "...") if obj.quote.text else ""
+    quote_short.short_description = "Quote"

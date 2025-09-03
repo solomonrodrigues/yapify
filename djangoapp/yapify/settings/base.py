@@ -165,3 +165,5 @@ SPECTACULAR_SETTINGS = {
         "rest_framework.authentication.SessionAuthentication"
     ],
 }
+
+QUOTE_GUESS_MAX_SKIPS_PER_WEEK = 3

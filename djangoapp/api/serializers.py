@@ -4,7 +4,7 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
-from djangoapp.yapify.models import User, Friendship, Quote, QuoteWitness, QuoteLike, Notification
+from djangoapp.yapify.models import User, Friendship, Quote, QuoteWitness, QuoteLike, Notification, QuoteGuess
 from django.db.models import Q
 
 
@@ -290,3 +290,35 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             }
 
         raise serializers.ValidationError('Must include email and password')
+
+
+class QuoteGuessSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = QuoteGuess
+        fields = ["id", "user", "quote", "guessed_user", "correct", "skipped", "created_at"]
+        read_only_fields = ["id", "correct", "created_at", "user"]
+
+    def validate(self, data):
+        request = self.context["request"]
+        user = request.user
+
+        # enforce skip limit
+        if data.get("skipped"):
+            from django.conf import settings
+            from django.utils.timezone import now
+            from datetime import timedelta
+
+            week_ago = now() - timedelta(days=7)
+            skips_this_week = QuoteGuess.objects.filter(
+                user=user, skipped=True, created_at__gte=week_ago
+            ).count()
+            if skips_this_week >= settings.QUOTE_GUESS_MAX_SKIPS_PER_WEEK:
+                raise serializers.ValidationError(
+                    f"You can only skip {settings.QUOTE_GUESS_MAX_SKIPS_PER_WEEK} times per week."
+                )
+
+        return data
+
+    def create(self, validated_data):
+        validated_data["user"] = self.context["request"].user
+        return super().create(validated_data)
