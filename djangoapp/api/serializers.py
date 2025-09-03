@@ -197,6 +197,7 @@ class QuoteSerializer(serializers.ModelSerializer):
             return QuoteGuess.objects.filter(user=request.user, quote=obj).exists()
         return False
 
+    @extend_schema_field(QuoteGuessSerializer(many=False, allow_null=True))
     def get_guess(self, obj) -> Optional[QuoteGuessSerializer]:
         request = self.context.get('request')
         if request and request.user.is_authenticated:
@@ -216,6 +217,7 @@ class QuoteSerializer(serializers.ModelSerializer):
         ).count()
         return max(settings.GUESS_SKIPS_PER_WEEK - used, 0)
 
+    @extend_schema_field(MinimalUserSerializer(many=True))
     def get_guess_options(self, obj) -> List[MinimalUserSerializer]:
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
