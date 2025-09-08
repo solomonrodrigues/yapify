@@ -23,6 +23,7 @@ INSTALLED_APPS += [  # Third party apps
     'corsheaders',  # for mobile app CORS
     'drf_spectacular',
     'post_office',
+    'anymail',
 ]
 INSTALLED_APPS += [  # Custom apps
     'djangoapp.api',
