@@ -1,4 +1,5 @@
 # views.py
+from django.db import transaction
 from django.utils import timezone
 from rest_framework import generics, status, permissions, exceptions, filters
 from rest_framework.exceptions import NotFound
@@ -227,6 +228,7 @@ class SendFriendRequestView(generics.CreateAPIView):
     serializer_class = FriendRequestSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    @transaction.atomic
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
@@ -249,10 +251,66 @@ class SendFriendRequestView(generics.CreateAPIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+class CancelFriendRequestView(APIView):
+    """Cancel outgoing pending friend request."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    @transaction.atomic
+    def delete(self, request, user_id, *args, **kwargs):
+        friendship = Friendship.objects.select_for_update().filter(
+            sender=request.user,
+            receiver__id=user_id,
+            status='pending'
+        ).first()
+
+        if not friendship:
+            return Response(
+                {'detail': 'No outgoing pending request to this user.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Clean up any related "friend_request" notifications
+        Notification.objects.filter(
+            friendship=friendship,
+            notification_type='friend_request'
+        ).delete()
+
+        friendship.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class UnfriendView(APIView):
+    """Unfriend (remove accepted friendship)."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    @transaction.atomic
+    def delete(self, request, user_id, *args, **kwargs):
+        friendship = Friendship.objects.select_for_update().filter(
+            Q(sender=request.user, receiver__id=user_id) | Q(sender__id=user_id, receiver=request.user),
+            status='accepted'
+        ).first()
+
+        if not friendship:
+            return Response(
+                {'detail': 'No accepted friendship found with this user.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Clean up any related "friend_accepted" notifications
+        Notification.objects.filter(
+            friendship=friendship,
+            notification_type='friend_accepted'
+        ).delete()
+
+        friendship.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 class RespondToFriendRequestView(APIView):
     """Accept or reject friend request"""
     permission_classes = [permissions.IsAuthenticated]
 
+    @transaction.atomic
     def post(self, request, friendship_id):
         friendship = get_object_or_404(Friendship, id=friendship_id, receiver=request.user)
         action = request.data.get('action')

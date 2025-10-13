@@ -26,9 +26,11 @@ urlpatterns = [
 
     # Friends
     path('friends/', views.FriendListView.as_view(), name='friend_list'),
-    path('friends/recent-quoted/', views.RecentQuotedFriendsView.as_view(), name='recent-quoted-friends'),
+    path('friends/recent-quoted/', views.RecentQuotedFriendsView.as_view(), name='recent_quoted_friends'),
     path('friends/requests/', views.FriendRequestListView.as_view(), name='friend_requests'),
     path('friends/send/', views.SendFriendRequestView.as_view(), name='send_friend_request'),
+    path('friends/<int:user_id>/cancel/', views.CancelFriendRequestView.as_view(), name='cancel_friend_request'),
+    path('friends/<int:user_id>/unfriend/', views.UnfriendView.as_view(), name='unfriend'),
     path('friends/respond/<int:friendship_id>/', views.RespondToFriendRequestView.as_view(),
          name='respond_friend_request'),
 
