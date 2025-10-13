@@ -6,6 +6,7 @@ from django.contrib.auth.hashers import make_password, check_password
 from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Q
 from django.utils import timezone
 
 from .choices import ProfileColor, QuoteVisibility
@@ -438,3 +439,63 @@ class QuoteGuess(models.Model):
                 user.increment_streak()
             else:
                 user.reset_streak()  # wrong guess breaks streak
+
+
+class RecentSearchItem(models.Model):
+    owner = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="recent_search_items",
+    )
+
+    # Exactly one of these must be non-null
+    user_target = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        null=True, blank=True,
+        related_name="recently_searched_by",
+    )
+    quote_target = models.ForeignKey(
+        Quote,
+        on_delete=models.CASCADE,
+        null=True, blank=True,
+        related_name="recently_searched_by",
+    )
+
+    touched_at = models.DateTimeField(default=timezone.now)
+    last_query = models.CharField(max_length=200, blank=True, null=True)
+
+    class Meta:
+        ordering = ["-touched_at"]
+        constraints = [
+            # XOR: exactly one of user_target, quote_target is non-null
+            models.CheckConstraint(
+                check=(
+                    # (user is not null AND quote is null) OR (user is null AND quote is not null)
+                    (Q(user_target__isnull=False) & Q(quote_target__isnull=True)) |
+                    (Q(user_target__isnull=True) & Q(quote_target__isnull=False))
+                ),
+                name="recent_target_exactly_one_set",
+            ),
+            # Uniqueness per kind (Postgres supports partial unique constraints)
+            models.UniqueConstraint(
+                fields=["owner", "user_target"],
+                condition=Q(user_target__isnull=False),
+                name="unique_recent_owner_user",
+            ),
+            models.UniqueConstraint(
+                fields=["owner", "quote_target"],
+                condition=Q(quote_target__isnull=False),
+                name="unique_recent_owner_quote",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["owner", "touched_at"]),
+            models.Index(fields=["user_target"]),
+            models.Index(fields=["quote_target"]),
+        ]
+
+    def __str__(self):
+        tgt = self.user_target_id or self.quote_target_id
+        kind = "user" if self.user_target_id else "quote"
+        return f"{self.owner_id} → {kind}:{tgt} @ {self.touched_at}"

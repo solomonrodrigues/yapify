@@ -24,6 +24,9 @@ urlpatterns = [
     path('users/search/', views.UserSearchView.as_view(), name='user_search'),
     path('users/<int:user_id>/', views.UserDetailView.as_view(), name='user-detail'),
 
+    # Recent searches
+    path("recents/", views.RecentSearchView.as_view(), name="recent-search"),
+
     # Friends
     path('friends/', views.FriendListView.as_view(), name='friend_list'),
     path('friends/recent-quoted/', views.RecentQuotedFriendsView.as_view(), name='recent_quoted_friends'),

@@ -12,7 +12,9 @@ from django.db.models import Q
 from django.conf import settings
 from django.utils import timezone
 
-from djangoapp.yapify.models import User, Friendship, Quote, QuoteWitness, QuoteLike, Notification, QuoteGuess
+from djangoapp.yapify.models import (
+    User, Friendship, Quote, QuoteWitness, QuoteLike, Notification, QuoteGuess, RecentSearchItem
+)
 
 
 class MinimalUserSerializer(serializers.ModelSerializer):
@@ -146,6 +148,13 @@ class QuoteGuessSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data["user"] = self.context["request"].user
         return super().create(validated_data)
+
+
+class MinimalQuoteSerializer(serializers.ModelSerializer):
+    """Quote serializer including minimum necessary fields"""
+    class Meta:
+        model = Quote
+        fields = ("id", "text", "author", "quoted_user", "quoted_name", "created_at")
 
 
 class QuoteSerializer(serializers.ModelSerializer):
@@ -385,3 +394,50 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             }
 
         raise serializers.ValidationError('Must include email and password')
+
+
+KIND_CHOICES = (("user", "user"), ("quote", "quote"))
+
+
+class RecentSearchCreateSerializer(serializers.Serializer):
+    kind = serializers.ChoiceField(choices=KIND_CHOICES)
+    target_id = serializers.CharField()
+    query = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+    def validate(self, attrs):
+        kind = attrs["kind"]
+        tid = attrs["target_id"]
+        if kind == "user":
+            try:
+                attrs["_target"] = User.objects.get(pk=tid)
+            except User.DoesNotExist:
+                raise serializers.ValidationError({"target_id": "User not found."})
+        else:
+            try:
+                attrs["_target"] = Quote.objects.get(pk=tid)
+            except Quote.DoesNotExist:
+                raise serializers.ValidationError({"target_id": "Quote not found."})
+        return attrs
+
+
+class RecentSearchItemSerializer(serializers.ModelSerializer):
+    kind = serializers.SerializerMethodField()
+    target_id = serializers.SerializerMethodField()
+    data = serializers.SerializerMethodField()
+
+    class Meta:
+        model = RecentSearchItem
+        fields = ("kind", "target_id", "touched_at", "last_query", "data")
+
+    def get_kind(self, obj):
+        return "user" if obj.user_target_id else "quote"
+
+    def get_target_id(self, obj):
+        return str(obj.user_target_id or obj.quote_target_id)
+
+    def get_data(self, obj):
+        if obj.user_target_id and obj.user_target:
+            return MinimalUserSerializer(obj.user_target).data
+        if obj.quote_target_id and obj.quote_target:
+            return MinimalQuoteSerializer(obj.quote_target).data
+        return None

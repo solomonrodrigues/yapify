@@ -10,12 +10,12 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from django.shortcuts import get_object_or_404
 from django.db.models import Q, Max, Prefetch
 from djangoapp.yapify.models import User, Friendship, Quote, QuoteWitness, QuoteLike, Notification, EmailVerification, \
-    QuoteGuess
+    QuoteGuess, RecentSearchItem
 from .serializers import (
     UserRegistrationSerializer, UserSerializer, FriendshipSerializer,
     FriendRequestSerializer, QuoteSerializer, QuoteWitnessSerializer,
     NotificationSerializer, CustomTokenObtainPairSerializer, PublicUserSerializer, ResendVerificationSerializer,
-    VerifyEmailSerializer, QuoteGuessSerializer
+    VerifyEmailSerializer, QuoteGuessSerializer, RecentSearchItemSerializer, RecentSearchCreateSerializer
 )
 from .utils import send_verification_email, normalize_email
 
@@ -489,3 +489,57 @@ class QuoteGuessCreateView(generics.CreateAPIView):
     queryset = QuoteGuess.objects.all()
     serializer_class = QuoteGuessSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+
+class RecentSearchView(APIView):
+    """Get and create recent search items (users & quotes)"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        kind = request.query_params.get("kind")
+        try:
+            limit = min(int(request.query_params.get("limit", 10)), 50)
+        except ValueError:
+            limit = 10
+
+        qs = RecentSearchItem.objects.filter(owner=request.user).select_related(
+            "user_target", "quote_target"
+        )
+
+        if kind == "user":
+            qs = qs.filter(user_target__isnull=False)
+        elif kind == "quote":
+            qs = qs.filter(quote_target__isnull=False)
+
+        items = list(qs.order_by("-touched_at")[:limit])
+        data = RecentSearchItemSerializer(items, many=True).data
+        # Filter out deleted targets (shouldn't happen due to FK, but safe)
+        data = [d for d in data if d.get("data") is not None][:limit]
+        return Response(data)
+
+    @transaction.atomic
+    def post(self, request):
+        ser = RecentSearchCreateSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        target = ser.validated_data["_target"]
+        query = ser.validated_data.get("query")
+        now = timezone.now()
+
+        if isinstance(target, User):
+            rec, created = RecentSearchItem.objects.select_for_update().get_or_create(
+                owner=request.user, user_target=target,
+                defaults={"touched_at": now, "last_query": query},
+            )
+        else:  # Quote
+            rec, created = RecentSearchItem.objects.select_for_update().get_or_create(
+                owner=request.user, quote_target=target,
+                defaults={"touched_at": now, "last_query": query},
+            )
+
+        if not created:
+            rec.touched_at = now
+            if query is not None:
+                rec.last_query = query
+            rec.save(update_fields=["touched_at", "last_query"])
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
