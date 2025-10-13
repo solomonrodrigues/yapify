@@ -1,6 +1,7 @@
 # views.py
 from django.db import transaction
 from django.utils import timezone
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse
 from rest_framework import generics, status, permissions, exceptions, filters
 from rest_framework.exceptions import NotFound
 from rest_framework.pagination import PageNumberPagination
@@ -495,6 +496,15 @@ class RecentSearchView(APIView):
     """Get and create recent search items (users & quotes)"""
     permission_classes = [permissions.IsAuthenticated]
 
+    @extend_schema(
+        summary="List recent search items",
+        parameters=[
+            OpenApiParameter(name="kind", required=False, type=str, description="user | quote"),
+            OpenApiParameter(name="limit", required=False, type=int, description="Max items (<=50). Default 10"),
+        ],
+        responses={200: RecentSearchItemSerializer(many=True)},
+        tags=["recents"],
+    )
     def get(self, request):
         kind = request.query_params.get("kind")
         try:
@@ -518,6 +528,12 @@ class RecentSearchView(APIView):
         return Response(data)
 
     @transaction.atomic
+    @extend_schema(
+        summary="Touch (upsert) a recent item",
+        request=RecentSearchCreateSerializer,
+        responses={204: OpenApiResponse(description="Updated")},
+        tags=["recents"],
+    )
     def post(self, request):
         ser = RecentSearchCreateSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
