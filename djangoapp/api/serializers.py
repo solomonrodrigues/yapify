@@ -195,7 +195,7 @@ class QuoteSerializer(serializers.ModelSerializer):
     def get_is_witnessed(self, obj: Quote) -> bool:
         request = self.context.get('request')
         if request and request.user.is_authenticated:
-            return obj.witnesses.filter(user=request.user).exists()
+            return obj.witnesses.filter(witness=request.user).exists()
         return False
 
     def get_like_count(self, obj: Quote) -> int:

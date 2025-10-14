@@ -281,7 +281,8 @@ class QuoteWitness(models.Model):
         ]
 
     def clean(self):
-        # Ensure witness is friends with either the author or quoted user
+        # Ensure witness is the author, or is friends with either the author or quoted user
+        is_author = self.witness_id == self.quote.author_id
         is_friend_of_author = Friendship.objects.filter(
             models.Q(sender=self.witness, receiver=self.quote.author, status='accepted') |
             models.Q(sender=self.quote.author, receiver=self.witness, status='accepted')
@@ -297,7 +298,7 @@ class QuoteWitness(models.Model):
         else:
             is_friend_of_quoted_user = False
 
-        if not (is_friend_of_author or (has_real_user and is_friend_of_quoted_user)):
+        if not (is_author or is_friend_of_author or (has_real_user and is_friend_of_quoted_user)):
             raise ValidationError("You can only witness quotes involving your friends.")
 
     def save(self, *args, **kwargs):
