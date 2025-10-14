@@ -34,7 +34,7 @@ urlpatterns = [
     path('friends/send/', views.SendFriendRequestView.as_view(), name='send_friend_request'),
     path('friends/<int:user_id>/cancel/', views.CancelFriendRequestView.as_view(), name='cancel_friend_request'),
     path('friends/<int:user_id>/unfriend/', views.UnfriendView.as_view(), name='unfriend'),
-    path('friends/respond/<int:friendship_id>/', views.RespondToFriendRequestView.as_view(),
+    path('friends/<int:user_id>/respond/', views.RespondToFriendRequestView.as_view(),
          name='respond_friend_request'),
 
     # Quotes

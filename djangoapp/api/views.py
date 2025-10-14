@@ -312,8 +312,8 @@ class RespondToFriendRequestView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     @transaction.atomic
-    def post(self, request, friendship_id):
-        friendship = get_object_or_404(Friendship, id=friendship_id, receiver=request.user)
+    def post(self, request, user_id):
+        friendship = get_object_or_404(Friendship, sender_id=user_id, receiver=request.user)
         action = request.data.get('action')
 
         if action == 'accept':
