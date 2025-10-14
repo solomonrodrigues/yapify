@@ -167,6 +167,7 @@ class QuoteSerializer(serializers.ModelSerializer):
     quoted_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     witness_count = serializers.SerializerMethodField()
+    is_witnessed = serializers.SerializerMethodField()
     witnesses = QuoteWitnessSerializer(many=True, read_only=True)
     like_count = serializers.SerializerMethodField()
     is_liked = serializers.SerializerMethodField()
@@ -183,18 +184,24 @@ class QuoteSerializer(serializers.ModelSerializer):
             'id', 'text', 'author',
             'quoted_user', 'quoted_user_id', 'quoted_name',
             'created_at', 'updated_at',
-            'witness_count', 'witnesses', 'like_count', 'is_liked',
+            'witness_count', 'is_witnessed', 'witnesses', 'like_count', 'is_liked',
             'has_guessed', 'guess', 'remaining_skips', 'guess_options'
         )
         read_only_fields = ('id', 'author', 'created_at', 'updated_at')
 
-    def get_witness_count(self, obj) -> int:
+    def get_witness_count(self, obj: Quote) -> int:
         return obj.get_witness_count()
 
-    def get_like_count(self, obj) -> int:
+    def get_is_witnessed(self, obj: Quote) -> bool:
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.witnesses.filter(user=request.user).exists()
+        return False
+
+    def get_like_count(self, obj: Quote) -> int:
         return obj.likes.count()
 
-    def get_is_liked(self, obj) -> bool:
+    def get_is_liked(self, obj: Quote) -> bool:
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             return obj.likes.filter(user=request.user).exists()
