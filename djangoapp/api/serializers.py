@@ -356,6 +356,7 @@ class PublicUserSerializer(serializers.ModelSerializer):
 class NotificationSerializer(serializers.ModelSerializer):
     """Serializer for notifications"""
     sender = MinimalUserSerializer(read_only=True)
+    friendship = FriendshipSerializer(allow_null=True)
 
     class Meta:
         model = Notification
