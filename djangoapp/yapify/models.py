@@ -248,13 +248,12 @@ class Quote(models.Model):
 
     def get_witness_count(self):
         """Return the number of witnesses for this quote"""
-        return self.witnesses.filter(is_witness=True).count()
+        return self.witnesses.count()
 
     def get_witnesses(self):
         """Return users who witnessed this quote"""
         return User.objects.filter(
             witnessed_quotes__quote=self,
-            witnessed_quotes__is_witness=True
         )
 
 
@@ -272,21 +271,12 @@ class QuoteWitness(models.Model):
         on_delete=models.CASCADE,
         related_name='witnessed_quotes'
     )
-    is_witness = models.BooleanField(
-        default=True,
-        help_text="True if confirming they witnessed it, False if denying"
-    )
     created_at = models.DateTimeField(auto_now_add=True)
-    comment = models.TextField(
-        max_length=200,
-        blank=True,
-        help_text="Optional comment about witnessing the quote"
-    )
 
     class Meta:
         unique_together = ('quote', 'witness')
         indexes = [
-            models.Index(fields=['quote', 'is_witness']),
+            models.Index(fields=['quote']),
             models.Index(fields=['witness', 'created_at']),
         ]
 
@@ -315,8 +305,7 @@ class QuoteWitness(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        action = "witnessed" if self.is_witness else "denied witnessing"
-        return f"{self.witness} {action} quote by {self.quote.author}"
+        return f"{self.witness} witnessed quote by {self.quote.author}"
 
 
 class QuoteLike(models.Model):

@@ -114,7 +114,7 @@ class QuoteWitnessSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = QuoteWitness
-        fields = ('id', 'witness', 'is_witness', 'comment', 'created_at')
+        fields = ('id', 'witness', 'created_at')
         read_only_fields = ('id', 'witness', 'created_at')
 
 

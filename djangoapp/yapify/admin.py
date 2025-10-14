@@ -72,8 +72,8 @@ class QuoteAdmin(admin.ModelAdmin):
 
 @admin.register(QuoteWitness)
 class QuoteWitnessAdmin(admin.ModelAdmin):
-    list_display = ('witness', 'quote', 'is_witness', 'created_at')
-    list_filter = ('is_witness', 'created_at')
+    list_display = ('witness', 'quote', 'created_at')
+    list_filter = ('created_at',)
     search_fields = ('witness__email', 'quote__text')
     autocomplete_fields = ('witness', 'quote')
 

@@ -398,45 +398,43 @@ class QuoteDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class WitnessQuoteView(APIView):
-    """Witness a quote"""
+    """Witness/unwitness a quote"""
     permission_classes = [permissions.IsAuthenticated]
 
+    @transaction.atomic
     def post(self, request, quote_id):
         quote = get_object_or_404(Quote, id=quote_id, is_active=True)
-        is_witness = request.data.get('is_witness', True)
-        comment = request.data.get('comment', '')
 
         witness, created = QuoteWitness.objects.get_or_create(
             quote=quote,
             witness=request.user,
-            defaults={'is_witness': is_witness, 'comment': comment}
         )
 
-        if not created:
-            witness.is_witness = is_witness
-            witness.comment = comment
-            witness.save()
-
-        # Create notification
-        Notification.objects.create(
-            recipient=quote.author,
-            sender=request.user,
-            notification_type='quote_witnessed',
-            title='Quote Witnessed',
-            message=f'{request.user.get_full_name()} witnessed your quote',
-            quote=quote
-        )
-
-        return Response({
-            'message': 'Quote witnessed successfully',
-            'witness': QuoteWitnessSerializer(witness).data
-        })
+        if created:
+            # Create notification
+            if quote.author != request.user:
+                Notification.objects.create(
+                    recipient=quote.author,
+                    sender=request.user,
+                    notification_type='quote_witnessed',
+                    title='Quote Witnessed',
+                    message=f'{request.user.get_full_name()} witnessed your quote',
+                    quote=quote
+                )
+            return Response({
+                'message': 'Quote witnessed',
+                'witness': QuoteWitnessSerializer(witness).data
+            })
+        else:
+            witness.delete()
+            return Response({'message': 'Quote unwitnessed'})
 
 
 class LikeQuoteView(APIView):
     """Like/unlike a quote"""
     permission_classes = [permissions.IsAuthenticated]
 
+    @transaction.atomic
     def post(self, request, quote_id):
         quote = get_object_or_404(Quote, id=quote_id, is_active=True)
 
