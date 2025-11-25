@@ -45,3 +45,5 @@ ANYMAIL = {
     "MAILGUN_SENDER_DOMAIN": 'mail.yapify.net',
 }
 DEFAULT_FROM_EMAIL = "donotreply@mail.yapify.net"
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
