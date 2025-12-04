@@ -13,10 +13,21 @@ from django.db.models import Q, Max, Prefetch
 from djangoapp.yapify.models import User, Friendship, Quote, QuoteWitness, QuoteLike, Notification, EmailVerification, \
     QuoteGuess, RecentSearchItem
 from .serializers import (
-    UserRegistrationSerializer, UserSerializer, FriendshipSerializer,
-    FriendRequestSerializer, QuoteSerializer, QuoteWitnessSerializer,
-    NotificationSerializer, CustomTokenObtainPairSerializer, PublicUserSerializer, ResendVerificationSerializer,
-    VerifyEmailSerializer, QuoteGuessSerializer, RecentSearchItemSerializer, RecentSearchCreateSerializer
+    UserRegistrationSerializer,
+    UserSerializer,
+    FriendshipSerializer,
+    FriendRequestSerializer,
+    QuoteSerializer,
+    QuoteWitnessSerializer,
+    NotificationSerializer,
+    CustomTokenObtainPairSerializer,
+    PublicUserSerializer,
+    ResendVerificationSerializer,
+    VerifyEmailSerializer,
+    QuoteGuessSerializer,
+    RecentSearchItemSerializer,
+    RecentSearchCreateSerializer,
+    MinimalQuoteSerializer
 )
 from .utils import send_verification_email, normalize_email
 
