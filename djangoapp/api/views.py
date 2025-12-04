@@ -421,9 +421,11 @@ class QuoteSearchView(generics.ListAPIView):
         month = self.request.query_params.get('month')
 
         if year:
+            year = int(year)
             qs = qs.filter(created_at__year=year)
 
         if month:
+            month = int(month)
             qs = qs.filter(created_at__month=month)
 
         return qs
