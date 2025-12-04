@@ -126,14 +126,7 @@ class UserSearchView(generics.ListAPIView):
     search_fields = ['username', 'display_name']
 
     def get_queryset(self):
-        query = self.request.query_params.get('search', '')
-        if not query:
-            return User.objects.none()
-
-        return User.objects.filter(
-            Q(username__icontains=query) |
-            Q(display_name__icontains=query)
-        ).exclude(id=self.request.user.id)
+        return User.objects.exclude(id=self.request.user.id)
 
 
 class FriendListView(generics.ListAPIView):
@@ -373,6 +366,57 @@ class QuoteListCreateView(generics.ListCreateAPIView):
                 message=f'{quote.author.get_full_name()} posted a quote about you',
                 quote=quote
             )
+
+
+@extend_schema(
+    parameters=[
+        OpenApiParameter(
+            name='year',
+            type=int,
+            location=OpenApiParameter.QUERY,
+            description='Optional filter by creation year.',
+            required=False
+        ),
+        OpenApiParameter(
+            name='month',
+            type=int,
+            location=OpenApiParameter.QUERY,
+            description='Optional filter by creation month (1–12).',
+            required=False
+        ),
+    ],
+    responses={200: MinimalQuoteSerializer(many=True)}
+)
+class QuoteSearchView(generics.ListAPIView):
+    """
+    Search quotes by text, quoted user username, display name, or quoted_name.
+    Supports optional filtering by year and month.
+    """
+    serializer_class = MinimalQuoteSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardResultsPagination
+    filter_backends = [filters.SearchFilter]
+    search_fields = [
+        'text',
+        'quoted_name',
+        'quoted_user__username',
+        'quoted_user__display_name'
+    ]
+
+    def get_queryset(self):
+        qs = Quote.objects.filter(is_active=True)
+
+        # Custom filters (not handled by SearchFilter)
+        year = self.request.query_params.get('year')
+        month = self.request.query_params.get('month')
+
+        if year:
+            qs = qs.filter(created_at__year=year)
+
+        if month:
+            qs = qs.filter(created_at__month=month)
+
+        return qs
 
 
 class QuoteDetailView(generics.RetrieveUpdateDestroyAPIView):
