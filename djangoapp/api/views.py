@@ -27,7 +27,6 @@ from .serializers import (
     QuoteGuessSerializer,
     RecentSearchItemSerializer,
     RecentSearchCreateSerializer,
-    MinimalQuoteSerializer
 )
 from .utils import send_verification_email, normalize_email
 
@@ -396,14 +395,14 @@ class QuoteListCreateView(generics.ListCreateAPIView):
             required=False
         ),
     ],
-    responses={200: MinimalQuoteSerializer(many=True)}
+    responses={200: QuoteSerializer(many=True)}
 )
 class QuoteSearchView(generics.ListAPIView):
     """
     Search quotes by text, quoted user username, display name, or quoted_name.
     Supports optional filtering by year and month.
     """
-    serializer_class = MinimalQuoteSerializer
+    serializer_class = QuoteSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = StandardResultsPagination
     filter_backends = [filters.SearchFilter]
