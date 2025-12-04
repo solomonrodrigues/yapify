@@ -44,7 +44,7 @@ urlpatterns = [
     path('quotes/<int:pk>/', views.QuoteDetailView.as_view(), name='quote_detail'),
     path('quotes/<int:quote_id>/witness/', views.WitnessQuoteView.as_view(), name='witness_quote'),
     path('quotes/<int:quote_id>/like/', views.LikeQuoteView.as_view(), name='like_quote'),
-    path("search/quotes/", QuoteSearchView.as_view(), name="search_quotes"),
+    path("quotes/search/", QuoteSearchView.as_view(), name="quote_search"),
 
 
     # Guesses
