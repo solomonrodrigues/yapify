@@ -587,7 +587,7 @@ class MarkAllNotificationsReadView(APIView):
     def post(self, request):
         qs = Notification.objects.filter(
             recipient=self.request.user,
-            unread=True,
+            is_read=False,
         )
         count = qs.count()
         for n in qs:
