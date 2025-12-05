@@ -580,6 +580,27 @@ class MarkNotificationReadView(APIView):
         return Response({'message': 'Notification marked as read'})
 
 
+class MarkAllNotificationsReadView(APIView):
+    """Mark all notifications as read."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        qs = Notification.objects.filter(
+            recipient=self.request.user,
+            unread=True,
+        )
+        count = qs.count()
+        for n in qs:
+            n.mark_as_read()
+        return Response(
+            {
+                'message': 'All notifications marked as read',
+                'count': count,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
 class QuoteGuessCreateView(generics.CreateAPIView):
     queryset = QuoteGuess.objects.all()
     serializer_class = QuoteGuessSerializer
