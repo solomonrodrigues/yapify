@@ -181,6 +181,46 @@ class RecentQuotedFriendsView(generics.ListAPIView):
         return quoted_friends
 
 
+class UserFriendsListView(generics.ListAPIView):
+    """
+    Get a paginated list of another user's friends.
+    """
+    serializer_class = PublicUserSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardResultsPagination
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['username', 'display_name']
+    lookup_url_kwarg = 'user_id'
+
+    def get_target_user(self):
+        """
+        Resolve the user whose friends we want to list.
+        """
+        user_id = self.kwargs.get(self.lookup_url_kwarg)
+
+        try:
+            return User.objects.get(id=user_id, is_active=True)
+        except User.DoesNotExist:
+            raise NotFound("User not found.")
+
+    def get_queryset(self):
+        """
+        Return friends of the target user, optionally filtered by search.
+        """
+        target_user = self.get_target_user()
+        friends_queryset = target_user.get_friends()
+
+        # Apply search if provided (same behaviour as FriendListView)
+        search_query = self.request.query_params.get('search', '')
+        if search_query:
+            friends_queryset = friends_queryset.filter(
+                Q(username__icontains=search_query) |
+                Q(display_name__icontains=search_query)
+            )
+
+        return friends_queryset
+
+
 class UserDetailView(generics.RetrieveAPIView):
     """Retrieve public details about any user"""
     serializer_class = PublicUserSerializer
