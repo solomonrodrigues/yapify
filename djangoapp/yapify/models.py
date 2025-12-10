@@ -460,7 +460,7 @@ class RecentSearchItem(models.Model):
         constraints = [
             # XOR: exactly one of user_target, quote_target is non-null
             models.CheckConstraint(
-                check=(
+                condition=(
                     # (user is not null AND quote is null) OR (user is null AND quote is not null)
                     (Q(user_target__isnull=False) & Q(quote_target__isnull=True)) |
                     (Q(user_target__isnull=True) & Q(quote_target__isnull=False))
