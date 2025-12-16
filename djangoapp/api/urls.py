@@ -4,7 +4,6 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from djangoapp.api import views
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView
 
-from djangoapp.api.views import QuoteSearchView
 
 urlpatterns = [
     # OpenAPI Schema download
@@ -45,8 +44,9 @@ urlpatterns = [
     path('quotes/<int:pk>/', views.QuoteDetailView.as_view(), name='quote_detail'),
     path('quotes/<int:quote_id>/witness/', views.WitnessQuoteView.as_view(), name='witness_quote'),
     path('quotes/<int:quote_id>/like/', views.LikeQuoteView.as_view(), name='like_quote'),
-    path("quotes/search/", QuoteSearchView.as_view(), name="quote_search"),
-
+    path("quotes/search/", views.QuoteSearchView.as_view(), name="quote_search"),
+    path('quotes/<int:quote_id>/save/', views.SaveQuoteView.as_view(), name='quote-save'),
+    path('quotes/<int:quote_id>/hide/', views.HideQuoteView.as_view(), name='quote-hide'),
 
     # Guesses
     path("guesses/create/", views.QuoteGuessCreateView.as_view(), name="quote-guess-create"),

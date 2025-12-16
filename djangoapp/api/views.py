@@ -11,7 +11,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from django.shortcuts import get_object_or_404
 from django.db.models import Q, Max, Prefetch
 from djangoapp.yapify.models import User, Friendship, Quote, QuoteWitness, QuoteLike, Notification, EmailVerification, \
-    QuoteGuess, RecentSearchItem
+    QuoteGuess, RecentSearchItem, SavedQuote, HiddenQuote
 from .serializers import (
     UserRegistrationSerializer,
     UserSerializer,
@@ -557,35 +557,96 @@ class LikeQuoteView(APIView):
             return Response({'message': 'Quote unliked'})
 
 
-class LikeQuoteView(APIView):
-    """Like/unlike a quote"""
+class SaveQuoteView(APIView):
+    """
+    Save / unsave a quote.
+
+    POST   -> ensure quote is saved for the current user.
+    DELETE -> ensure quote is not saved for the current user.
+    """
     permission_classes = [permissions.IsAuthenticated]
 
     @transaction.atomic
     def post(self, request, quote_id):
         quote = get_object_or_404(Quote, id=quote_id, is_active=True)
 
-        like, created = QuoteLike.objects.get_or_create(
+        saved, created = SavedQuote.objects.get_or_create(
+            user=request.user,
             quote=quote,
-            user=request.user
         )
 
         if created:
-            # Create notification
-            if quote.author != request.user:
-                Notification.objects.create(
-                    recipient=quote.author,
-                    sender=request.user,
-                    notification_type='quote_liked',
-                    title='Quote Liked',
-                    message=f'{request.user.get_full_name()} liked your quote',
-                    quote=quote
-                )
-
-            return Response({'message': 'Quote liked'})
+            return Response(
+                {'detail': 'Quote saved.'},
+                status=status.HTTP_201_CREATED,
+            )
         else:
-            like.delete()
-            return Response({'message': 'Quote unliked'})
+            # Already saved; idempotent success
+            return Response(
+                {'detail': 'Quote already saved.'},
+                status=status.HTTP_200_OK,
+            )
+
+    @transaction.atomic
+    def delete(self, request, quote_id):
+        quote = get_object_or_404(Quote, id=quote_id, is_active=True)
+
+        deleted_count, _ = SavedQuote.objects.filter(
+            user=request.user,
+            quote=quote,
+        ).delete()
+
+        if deleted_count:
+            return Response({'detail': 'Quote unsaved.'}, status=status.HTTP_200_OK)
+        else:
+            # Idempotent: already not saved
+            return Response({'detail': 'Quote was not saved.'}, status=status.HTTP_200_OK)
+
+
+class HideQuoteView(APIView):
+    """
+    Hide / unhide a quote.
+
+    POST   -> ensure quote is hidden for the current user.
+    DELETE -> ensure quote is not hidden for the current user.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request, quote_id):
+        quote = get_object_or_404(Quote, id=quote_id, is_active=True)
+
+        hidden, created = HiddenQuote.objects.get_or_create(
+            user=request.user,
+            quote=quote,
+        )
+
+        if created:
+            return Response(
+                {'detail': 'Quote hidden.'},
+                status=status.HTTP_201_CREATED,
+            )
+        else:
+            # Already hidden; idempotent success
+            return Response(
+                {'detail': 'Quote already hidden.'},
+                status=status.HTTP_200_OK,
+            )
+
+    @transaction.atomic
+    def delete(self, request, quote_id):
+        quote = get_object_or_404(Quote, id=quote_id, is_active=True)
+
+        deleted_count, _ = HiddenQuote.objects.filter(
+            user=request.user,
+            quote=quote,
+        ).delete()
+
+        if deleted_count:
+            return Response({'detail': 'Quote unhidden.'}, status=status.HTTP_200_OK)
+        else:
+            # Idempotent: already not hidden
+            return Response({'detail': 'Quote was not hidden.'}, status=status.HTTP_200_OK)
 
 
 class NotificationListView(generics.ListAPIView):
