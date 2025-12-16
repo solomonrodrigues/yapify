@@ -50,15 +50,14 @@ class User(AbstractUser):
     # Quote buckets
     saved_quotes = models.ManyToManyField(
         'Quote',
+        through='SavedQuote',
         related_name='saved_by',
-        related_query_name='saved_by',
         blank=True,
     )
-
     hidden_quotes = models.ManyToManyField(
         'Quote',
+        through='HiddenQuote',
         related_name='hidden_by',
-        related_query_name='hidden_by',
         blank=True,
     )
 
@@ -350,6 +349,42 @@ class QuoteLike(models.Model):
 
     def __str__(self):
         return f"{self.user} liked quote by {self.quote.author}"
+
+
+class SavedQuote(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='saved_quote_links',
+    )
+    quote = models.ForeignKey(
+        'Quote',
+        on_delete=models.CASCADE,
+        related_name='saved_quote_links',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'quote')
+        ordering = ['-created_at']
+
+
+class HiddenQuote(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='hidden_quote_links',
+    )
+    quote = models.ForeignKey(
+        'Quote',
+        on_delete=models.CASCADE,
+        related_name='hidden_quote_links',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'quote')
+        ordering = ['-created_at']
 
 
 class Notification(models.Model):

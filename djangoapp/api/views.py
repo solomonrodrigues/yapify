@@ -557,6 +557,37 @@ class LikeQuoteView(APIView):
             return Response({'message': 'Quote unliked'})
 
 
+class LikeQuoteView(APIView):
+    """Like/unlike a quote"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request, quote_id):
+        quote = get_object_or_404(Quote, id=quote_id, is_active=True)
+
+        like, created = QuoteLike.objects.get_or_create(
+            quote=quote,
+            user=request.user
+        )
+
+        if created:
+            # Create notification
+            if quote.author != request.user:
+                Notification.objects.create(
+                    recipient=quote.author,
+                    sender=request.user,
+                    notification_type='quote_liked',
+                    title='Quote Liked',
+                    message=f'{request.user.get_full_name()} liked your quote',
+                    quote=quote
+                )
+
+            return Response({'message': 'Quote liked'})
+        else:
+            like.delete()
+            return Response({'message': 'Quote unliked'})
+
+
 class NotificationListView(generics.ListAPIView):
     """List user notifications"""
     serializer_class = NotificationSerializer
