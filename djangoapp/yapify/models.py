@@ -47,6 +47,21 @@ class User(AbstractUser):
     current_streak = models.PositiveIntegerField(default=0)
     longest_streak = models.PositiveIntegerField(default=0)
 
+    # Quote buckets
+    saved_quotes = models.ManyToManyField(
+        'Quote',
+        related_name='saved_by',
+        related_query_name='saved_by',
+        blank=True,
+    )
+
+    hidden_quotes = models.ManyToManyField(
+        'Quote',
+        related_name='hidden_by',
+        related_query_name='hidden_by',
+        blank=True,
+    )
+
     objects = MyUserManager()
 
     USERNAME_FIELD = 'email'
@@ -187,6 +202,7 @@ class Quote(models.Model):
     Model to store quotes that users post about their friends
     """
     text = models.TextField(max_length=1000)
+    context = models.TextField(max_length=1000, blank=True, null=True)
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,

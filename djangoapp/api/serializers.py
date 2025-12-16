@@ -154,7 +154,7 @@ class MinimalQuoteSerializer(serializers.ModelSerializer):
     """Quote serializer including minimum necessary fields"""
     class Meta:
         model = Quote
-        fields = ("id", "text", "author", "quoted_user", "quoted_name", "created_at")
+        fields = ("id", "text", "context", "author", "quoted_user", "quoted_name", "created_at")
 
 
 class QuoteSerializer(serializers.ModelSerializer):
@@ -181,7 +181,7 @@ class QuoteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Quote
         fields = (
-            'id', 'text', 'author',
+            'id', 'text', 'context', 'author',
             'quoted_user', 'quoted_user_id', 'quoted_name',
             'created_at', 'updated_at',
             'witness_count', 'is_witnessed', 'witnesses', 'like_count', 'is_liked',
