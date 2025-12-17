@@ -397,11 +397,17 @@ class QuoteListCreateView(generics.ListCreateAPIView):
         friends = user.get_friends()
 
         # Get quotes from friends and public quotes
-        return Quote.objects.filter(
-            Q(author__in=friends) |
-            Q(author=user) |
-            Q(quoted_user=user)
-        ).filter(is_active=True).distinct()
+        return (
+            Quote.objects
+            .filter(
+                Q(author__in=friends) |
+                Q(author=user) |
+                Q(quoted_user=user)
+            )
+            .filter(is_active=True)
+            .exclude(hidden_quote_links__user=user)
+            .distinct()
+        )
 
     def perform_create(self, serializer):
         quote = serializer.save()
@@ -454,7 +460,12 @@ class QuoteSearchView(generics.ListAPIView):
     ]
 
     def get_queryset(self):
-        qs = Quote.objects.filter(is_active=True)
+        user = self.request.user
+        qs = (
+            Quote.objects
+            .filter(is_active=True)
+            .exclude(hidden_quote_links__user=user)
+        )
 
         # Custom filters (not handled by SearchFilter)
         year = self.request.query_params.get('year')
