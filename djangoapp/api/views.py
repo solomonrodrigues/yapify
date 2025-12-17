@@ -649,6 +649,48 @@ class HideQuoteView(APIView):
             return Response({'detail': 'Quote was not hidden.'}, status=status.HTTP_200_OK)
 
 
+class SavedQuoteListView(generics.ListAPIView):
+    """
+    List the current user's saved quotes
+    """
+    serializer_class = QuoteSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+
+        return (
+            Quote.objects
+            .filter(
+                saved_quote_links__user=user,
+                is_active=True,
+            )
+            .order_by('-saved_quote_links__created_at')
+            .distinct()
+        )
+
+
+class HiddenQuoteListView(generics.ListAPIView):
+    """
+    List the current user's hidden quotes
+    """
+    serializer_class = QuoteSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+
+        return (
+            Quote.objects
+            .filter(
+                hidden_quote_links__user=user,
+                is_active=True,
+            )
+            .order_by('-hidden_quote_links__created_at')
+            .distinct()
+        )
+
+
 class NotificationListView(generics.ListAPIView):
     """List user notifications"""
     serializer_class = NotificationSerializer
