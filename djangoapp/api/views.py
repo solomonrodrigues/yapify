@@ -666,6 +666,7 @@ class SavedQuoteListView(generics.ListAPIView):
     """
     serializer_class = QuoteSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardResultsPagination
 
     def get_queryset(self):
         user = self.request.user
@@ -687,6 +688,7 @@ class HiddenQuoteListView(generics.ListAPIView):
     """
     serializer_class = QuoteSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardResultsPagination
 
     def get_queryset(self):
         user = self.request.user
