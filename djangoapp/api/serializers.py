@@ -171,6 +171,8 @@ class QuoteSerializer(serializers.ModelSerializer):
     witnesses = QuoteWitnessSerializer(many=True, read_only=True)
     like_count = serializers.SerializerMethodField()
     is_liked = serializers.SerializerMethodField()
+    is_saved = serializers.SerializerMethodField()
+    is_hidden = serializers.SerializerMethodField()
 
     # Guessing game support
     has_guessed = serializers.SerializerMethodField()
@@ -184,7 +186,8 @@ class QuoteSerializer(serializers.ModelSerializer):
             'id', 'text', 'context', 'author',
             'quoted_user', 'quoted_user_id', 'quoted_name',
             'created_at', 'updated_at',
-            'witness_count', 'is_witnessed', 'witnesses', 'like_count', 'is_liked',
+            'witness_count', 'is_witnessed', 'witnesses', 'like_count',
+            'is_liked', 'is_saved', 'is_hidden',
             'has_guessed', 'guess', 'remaining_skips', 'guess_options'
         )
         read_only_fields = ('id', 'author', 'created_at', 'updated_at')
@@ -205,6 +208,18 @@ class QuoteSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             return obj.likes.filter(user=request.user).exists()
+        return False
+
+    def get_is_saved(self, obj: Quote) -> bool:
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.saved_quote_links.filter(user=request.user).exists()
+        return False
+
+    def get_is_hidden(self, obj: Quote) -> bool:
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.hidden_quote_links.filter(user=request.user).exists()
         return False
 
     def get_has_guessed(self, obj) -> bool:
