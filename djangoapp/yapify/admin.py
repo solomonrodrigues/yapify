@@ -1,7 +1,10 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils.translation import gettext_lazy as _
-from .models import User, Friendship, Quote, QuoteWitness, QuoteLike, Notification, EmailVerification, QuoteGuess
+from .models import (
+    User, Friendship, Quote, QuoteWitness, QuoteLike, Notification, EmailVerification, QuoteGuess,
+    SavedQuote, HiddenQuote, RecentSearchItem,
+)
 
 
 @admin.register(User)
@@ -20,7 +23,7 @@ class UserAdmin(BaseUserAdmin):
             'fields': ('email', 'username', 'display_name', 'password1', 'password2'),
         }),
     )
-    list_display = ('email', 'username', 'display_name', 'is_active', 'is_staff')
+    list_display = ('id', 'email', 'username', 'display_name', 'is_active', 'is_staff')
     search_fields = ('email', 'username', 'display_name')
     ordering = ('-date_joined',)
     filter_horizontal = ('groups', 'user_permissions')
@@ -55,7 +58,7 @@ class EmailVerificationAdmin(admin.ModelAdmin):
 
 @admin.register(Friendship)
 class FriendshipAdmin(admin.ModelAdmin):
-    list_display = ('sender', 'receiver', 'status', 'created_at')
+    list_display = ('id', 'sender', 'receiver', 'status', 'created_at')
     list_filter = ('status', 'created_at')
     search_fields = ('sender__email', 'receiver__email')
     autocomplete_fields = ('sender', 'receiver')
@@ -63,7 +66,7 @@ class FriendshipAdmin(admin.ModelAdmin):
 
 @admin.register(Quote)
 class QuoteAdmin(admin.ModelAdmin):
-    list_display = ('__str__', 'author', 'quoted_user', 'is_active', 'created_at')
+    list_display = ('id', '__str__', 'author', 'quoted_user', 'is_active', 'created_at')
     list_filter = ('is_active', 'created_at')
     search_fields = ('text', 'author__email', 'quoted_user__email')
     autocomplete_fields = ('author', 'quoted_user')
@@ -119,3 +122,82 @@ class QuoteGuessAdmin(admin.ModelAdmin):
     def quote_short(self, obj):
         return (obj.quote.text[:50] + "...") if obj.quote.text else ""
     quote_short.short_description = "Quote"
+
+
+@admin.register(SavedQuote)
+class SavedQuoteAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "user",
+        "quote_short",
+        "created_at",
+    )
+    list_filter = ("created_at",)
+    search_fields = (
+        "user__email",
+        "user__username",
+        "quote__text",
+    )
+    autocomplete_fields = ("user", "quote")
+    readonly_fields = ("created_at",)
+
+    def quote_short(self, obj):
+        return obj.quote.text[:50] + "…" if obj.quote.text else ""
+    quote_short.short_description = "Quote"
+
+
+@admin.register(HiddenQuote)
+class HiddenQuoteAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "user",
+        "quote_short",
+        "created_at",
+    )
+    list_filter = ("created_at",)
+    search_fields = (
+        "user__email",
+        "user__username",
+        "quote__text",
+    )
+    autocomplete_fields = ("user", "quote")
+    readonly_fields = ("created_at",)
+
+    def quote_short(self, obj):
+        return obj.quote.text[:50] + "…" if obj.quote.text else ""
+    quote_short.short_description = "Quote"
+
+
+@admin.register(RecentSearchItem)
+class RecentSearchItemAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "owner",
+        "target_type",
+        "target_display",
+        "last_query",
+        "touched_at",
+    )
+    list_filter = ("touched_at",)
+    search_fields = (
+        "owner__email",
+        "owner__username",
+        "user_target__email",
+        "user_target__username",
+        "quote_target__text",
+        "last_query",
+    )
+    autocomplete_fields = ("owner", "user_target", "quote_target")
+    readonly_fields = ("touched_at",)
+
+    def target_type(self, obj):
+        return "User" if obj.user_target_id else "Quote"
+    target_type.short_description = "Target Type"
+
+    def target_display(self, obj):
+        if obj.user_target:
+            return str(obj.user_target)
+        if obj.quote_target:
+            return obj.quote_target.text[:50] + "…" if obj.quote_target.text else ""
+        return "-"
+    target_display.short_description = "Target"
