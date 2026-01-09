@@ -258,6 +258,44 @@ class UserDetailView(generics.RetrieveAPIView):
         return context
 
 
+class UserPostedQuotesListView(generics.ListAPIView):
+    """List quotes posted by a specific user (where they are the author)"""
+    serializer_class = QuoteSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardResultsPagination
+    lookup_url_kwarg = 'user_id'
+
+    def get_queryset(self):
+        user_id = self.kwargs.get(self.lookup_url_kwarg)
+        target_user = get_object_or_404(User, id=user_id, is_active=True)
+
+        return (
+            Quote.objects
+            .filter(author=target_user, is_active=True)
+            .exclude(hidden_quote_links__user=self.request.user)
+            .order_by('-created_at')
+        )
+
+
+class UserReceivedQuotesListView(generics.ListAPIView):
+    """List quotes about a specific user (where they are the quoted_user)"""
+    serializer_class = QuoteSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardResultsPagination
+    lookup_url_kwarg = 'user_id'
+
+    def get_queryset(self):
+        user_id = self.kwargs.get(self.lookup_url_kwarg)
+        target_user = get_object_or_404(User, id=user_id, is_active=True)
+
+        return (
+            Quote.objects
+            .filter(quoted_user=target_user, is_active=True)
+            .exclude(hidden_quote_links__user=self.request.user)
+            .order_by('-created_at')
+        )
+
+
 class FriendRequestListView(generics.ListAPIView):
     """List pending friend requests"""
     serializer_class = FriendshipSerializer
