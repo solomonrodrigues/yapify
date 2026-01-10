@@ -606,6 +606,36 @@ class LikeQuoteView(APIView):
             return Response({'message': 'Quote unliked'})
 
 
+class QuoteLikesListView(generics.ListAPIView):
+    """List users who liked a specific quote"""
+    serializer_class = PublicUserSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardResultsPagination
+
+    def get_queryset(self):
+        quote_id = self.kwargs.get('quote_id')
+        quote = get_object_or_404(Quote, id=quote_id, is_active=True)
+
+        return User.objects.filter(
+            liked_quotes__quote=quote
+        ).order_by('-liked_quotes__created_at')
+
+
+class QuoteWitnessesListView(generics.ListAPIView):
+    """List users who witnessed a specific quote"""
+    serializer_class = PublicUserSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardResultsPagination
+
+    def get_queryset(self):
+        quote_id = self.kwargs.get('quote_id')
+        quote = get_object_or_404(Quote, id=quote_id, is_active=True)
+
+        return User.objects.filter(
+            witnessed_quotes__quote=quote
+        ).order_by('-witnessed_quotes__created_at')
+
+
 class SaveQuoteView(APIView):
     """
     Save / unsave a quote.
