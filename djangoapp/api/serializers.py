@@ -63,18 +63,22 @@ class ResendVerificationSerializer(serializers.Serializer):
 class UserSerializer(serializers.ModelSerializer):
     """Serializer for user profile"""
     friends_count = serializers.SerializerMethodField()
-    quotes_count = serializers.SerializerMethodField()
+    quotes_posted = serializers.SerializerMethodField()
+    quotes_received = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = ('id', 'email', 'username', 'display_name', 'bio', 'date_joined',
-                  'friends_count', 'quotes_count', 'quote_visibility', 'profile_color')
+                  'friends_count', 'quotes_posted', 'quotes_received', 'quote_visibility', 'profile_color')
         read_only_fields = ('id', 'email', 'date_joined')
 
     def get_friends_count(self, obj):
         return obj.get_friends().count()
 
-    def get_quotes_count(self, obj):
+    def get_quotes_posted(self, obj):
+        return obj.posted_quotes.filter(is_active=True).count()
+
+    def get_quotes_received(self, obj):
         return obj.quotes_about_me.filter(is_active=True).count()
 
 
@@ -296,9 +300,10 @@ class PublicUserSerializer(serializers.ModelSerializer):
     display_name = serializers.CharField(read_only=True)
     profile_color = serializers.CharField(read_only=True)
 
-    # Quote statistics - public info
-    total_quotes_posted = serializers.SerializerMethodField()
-    total_quotes_received = serializers.SerializerMethodField()
+    # Statistics
+    friends_count = serializers.SerializerMethodField()
+    quotes_posted = serializers.SerializerMethodField()
+    quotes_received = serializers.SerializerMethodField()
 
     # Recent public quotes (limit to 10 most recent)
     recent_quotes_posted = serializers.SerializerMethodField()
@@ -314,7 +319,7 @@ class PublicUserSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'username', 'display_name', 'profile_color', 'date_joined',
-            'total_quotes_posted', 'total_quotes_received',
+            'friends_count', 'quotes_posted', 'quotes_received',
             'recent_quotes_posted', 'friendship', 'quotes_i_made_about_user'
         ]
 
@@ -322,11 +327,15 @@ class PublicUserSerializer(serializers.ModelSerializer):
         """Get the current authenticated user from context"""
         return self.context['request'].user
 
-    def get_total_quotes_posted(self, obj) -> int:
+    def get_friends_count(self, obj) -> int:
+        """Total friends this user has"""
+        return obj.get_friends().count()
+
+    def get_quotes_posted(self, obj) -> int:
         """Total quotes this user has posted"""
         return obj.posted_quotes.filter(is_active=True).count()
 
-    def get_total_quotes_received(self, obj) -> int:
+    def get_quotes_received(self, obj) -> int:
         """Total quotes about this user"""
         return obj.quotes_about_me.filter(is_active=True).count()
 
