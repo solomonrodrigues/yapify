@@ -636,6 +636,40 @@ class QuoteWitnessesListView(generics.ListAPIView):
         ).order_by('-witnessed_quotes__created_at')
 
 
+class RespondToQuoteView(APIView):
+    """
+    Allow the quoted user to confirm or deny a quote attributed to them.
+
+    POST with {"response": "confirmed"} or {"response": "denied"} or {"response": null}
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, quote_id):
+        quote = get_object_or_404(Quote, id=quote_id, is_active=True)
+
+        # Only the quoted user can respond
+        if quote.quoted_user != request.user:
+            raise exceptions.PermissionDenied("Only the quoted user can respond to this quote.")
+
+        response_value = request.data.get('response')
+
+        # Validate the response value
+        valid_responses = ['confirmed', 'denied', None]
+        if response_value not in valid_responses:
+            return Response(
+                {'error': f'Invalid response. Must be one of: {valid_responses}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        quote.quoted_user_response = response_value
+        quote.save(update_fields=['quoted_user_response'])
+
+        return Response({
+            'message': 'Quote response updated.',
+            'quote': QuoteSerializer(quote, context={'request': request}).data
+        })
+
+
 class SaveQuoteView(APIView):
     """
     Save / unsave a quote.

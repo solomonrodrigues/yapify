@@ -9,7 +9,7 @@ from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 
-from .choices import ProfileColor, QuoteVisibility
+from .choices import ProfileColor, QuoteResponse, QuoteVisibility
 from .managers import MyUserManager
 from .utils import get_random_color
 from .validators import yapify_username_validator
@@ -202,6 +202,13 @@ class Quote(models.Model):
     """
     text = models.TextField(max_length=1000)
     context = models.TextField(max_length=1000, blank=True, null=True)
+    quoted_user_response = models.CharField(
+        max_length=20,
+        choices=QuoteResponse.choices,
+        blank=True,
+        null=True,
+        help_text="Whether the quoted user has confirmed or denied this quote"
+    )
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,

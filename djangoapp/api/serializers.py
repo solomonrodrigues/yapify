@@ -158,7 +158,7 @@ class MinimalQuoteSerializer(serializers.ModelSerializer):
     """Quote serializer including minimum necessary fields"""
     class Meta:
         model = Quote
-        fields = ("id", "text", "context", "author", "quoted_user", "quoted_name", "created_at")
+        fields = ("id", "text", "context", "quoted_user_response", "author", "quoted_user", "quoted_name", "created_at")
 
 
 class QuoteSerializer(serializers.ModelSerializer):
@@ -184,17 +184,21 @@ class QuoteSerializer(serializers.ModelSerializer):
     remaining_skips = serializers.SerializerMethodField()
     guess_options = serializers.SerializerMethodField()
 
+    # Quoted user response
+    can_respond = serializers.SerializerMethodField()
+
     class Meta:
         model = Quote
         fields = (
             'id', 'text', 'context', 'author',
             'quoted_user', 'quoted_user_id', 'quoted_name',
+            'quoted_user_response', 'can_respond',
             'created_at', 'updated_at',
             'witness_count', 'is_witnessed', 'witnesses', 'like_count',
             'is_liked', 'is_saved', 'is_hidden',
             'has_guessed', 'guess', 'remaining_skips', 'guess_options'
         )
-        read_only_fields = ('id', 'author', 'created_at', 'updated_at')
+        read_only_fields = ('id', 'author', 'created_at', 'updated_at', 'quoted_user_response')
 
     def get_witness_count(self, obj: Quote) -> int:
         return obj.get_witness_count()
@@ -274,6 +278,13 @@ class QuoteSerializer(serializers.ModelSerializer):
         rng.shuffle(options)
 
         return MinimalUserSerializer(options, many=True).data
+
+    def get_can_respond(self, obj: Quote) -> bool:
+        """Check if current user is the quoted user and can respond to this quote"""
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.quoted_user_id == request.user.id
+        return False
 
     def create(self, validated_data):
         quoted_user = validated_data.pop('quoted_user_id', None)
