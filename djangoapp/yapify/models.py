@@ -87,6 +87,26 @@ class User(AbstractUser):
         """Return friends, filtering out inactive or unverified."""
         return self.get_friends().filter(is_active=True, is_email_verified=True)
 
+    def get_blocked_users(self):
+        """Return users this user has blocked."""
+        return User.objects.filter(
+            received_friendships__sender=self,
+            received_friendships__status='blocked'
+        )
+
+    def get_blocked_by_users(self):
+        """Return users who have blocked this user."""
+        return User.objects.filter(
+            sent_friendships__receiver=self,
+            sent_friendships__status='blocked'
+        )
+
+    def get_all_blocked_user_ids(self):
+        """Return IDs of users blocked by or blocking this user (for filtering)."""
+        blocked_ids = set(self.get_blocked_users().values_list('id', flat=True))
+        blocked_by_ids = set(self.get_blocked_by_users().values_list('id', flat=True))
+        return blocked_ids | blocked_by_ids
+
     def get_random_guess_options(self, exclude=None, count=3, seed=None):
         """Return random friends for multiple choice, optionally excluding some.
         Deterministic if `seed` is provided.

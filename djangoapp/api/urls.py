@@ -41,6 +41,10 @@ urlpatterns = [
     path('friends/<int:user_id>/respond/', views.RespondToFriendRequestView.as_view(),
          name='respond_friend_request'),
 
+    # Blocking
+    path('users/<int:user_id>/block/', views.BlockUserView.as_view(), name='block-user'),
+    path('users/blocked/', views.BlockedUsersListView.as_view(), name='blocked-users-list'),
+
     # Quotes
     path('quotes/', views.QuoteListCreateView.as_view(), name='quote_list_create'),
     path('quotes/<int:pk>/', views.QuoteDetailView.as_view(), name='quote_detail'),
