@@ -131,6 +131,15 @@ class QuoteGuessSerializer(serializers.ModelSerializer):
     def validate(self, data):
         request = self.context["request"]
         user = request.user
+        quote = data.get("quote")
+
+        # Prevent author from guessing their own quote
+        if quote.author_id == user.id:
+            raise serializers.ValidationError("You cannot guess on a quote you posted.")
+
+        # Prevent quoted user from guessing (they know the answer)
+        if quote.quoted_user_id == user.id:
+            raise serializers.ValidationError("You cannot guess on a quote about yourself.")
 
         # enforce skip limit
         if data.get("skipped"):
@@ -212,6 +221,7 @@ class QuoteSerializer(serializers.ModelSerializer):
     is_hidden = serializers.SerializerMethodField()
 
     # Guessing game support
+    can_guess = serializers.SerializerMethodField()
     has_guessed = serializers.SerializerMethodField()
     guess = serializers.SerializerMethodField()
     remaining_skips = serializers.SerializerMethodField()
@@ -229,7 +239,7 @@ class QuoteSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at',
             'witness_count', 'is_witnessed', 'witnesses', 'like_count',
             'is_liked', 'is_saved', 'is_hidden',
-            'has_guessed', 'guess', 'remaining_skips', 'guess_options'
+            'can_guess', 'has_guessed', 'guess', 'remaining_skips', 'guess_options'
         )
         read_only_fields = ('id', 'author', 'created_at', 'updated_at', 'quoted_user_response')
 
@@ -262,6 +272,32 @@ class QuoteSerializer(serializers.ModelSerializer):
         if request and request.user.is_authenticated:
             return obj.hidden_quote_links.filter(user=request.user).exists()
         return False
+
+    def get_can_guess(self, obj: Quote) -> bool:
+        """Check if current user can guess on this quote"""
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+
+        user = request.user
+
+        # Cannot guess if user is the author
+        if obj.author_id == user.id:
+            return False
+
+        # Cannot guess if user is the quoted user
+        if obj.quoted_user_id == user.id:
+            return False
+
+        # Cannot guess if already guessed
+        if QuoteGuess.objects.filter(user=user, quote=obj).exists():
+            return False
+
+        # Cannot guess if quote doesn't have a real user
+        if not obj.quoted_user_id:
+            return False
+
+        return True
 
     def get_has_guessed(self, obj) -> bool:
         request = self.context.get('request')
