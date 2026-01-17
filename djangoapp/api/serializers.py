@@ -297,6 +297,11 @@ class QuoteSerializer(serializers.ModelSerializer):
         if not obj.quoted_user_id:
             return False
 
+        # Cannot guess if there aren't enough options (need more than 1)
+        random_friends = user.get_random_guess_options(exclude=[obj.quoted_user], count=3)
+        if len(random_friends) == 0:
+            return False
+
         return True
 
     def get_has_guessed(self, obj) -> bool:
