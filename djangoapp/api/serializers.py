@@ -154,6 +154,39 @@ class QuoteGuessSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
+class QuoteGuessListItemSerializer(serializers.ModelSerializer):
+    """Serializer for listing guesses on a quote with friendship status"""
+    user = MinimalUserSerializer(read_only=True)
+    guessed_user = MinimalUserSerializer(read_only=True)
+    friendship_status = serializers.SerializerMethodField()
+
+    class Meta:
+        model = QuoteGuess
+        fields = ["id", "user", "guessed_user", "correct", "skipped", "created_at", "friendship_status"]
+        read_only_fields = fields
+
+    def get_friendship_status(self, obj) -> str | None:
+        """Return friendship status between requesting user and the guesser"""
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return None
+
+        current_user = request.user
+        guesser = obj.user
+
+        if current_user.id == guesser.id:
+            return "self"
+
+        friendship = Friendship.objects.filter(
+            Q(sender=current_user, receiver=guesser) |
+            Q(sender=guesser, receiver=current_user)
+        ).first()
+
+        if friendship:
+            return friendship.status
+        return None
+
+
 class MinimalQuoteSerializer(serializers.ModelSerializer):
     """Quote serializer including minimum necessary fields"""
     class Meta:

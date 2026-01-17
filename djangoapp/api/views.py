@@ -25,6 +25,7 @@ from .serializers import (
     ResendVerificationSerializer,
     VerifyEmailSerializer,
     QuoteGuessSerializer,
+    QuoteGuessListItemSerializer,
     RecentSearchItemSerializer,
     RecentSearchCreateSerializer,
 )
@@ -854,6 +855,56 @@ class QuoteGuessCreateView(generics.CreateAPIView):
     queryset = QuoteGuess.objects.all()
     serializer_class = QuoteGuessSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+
+class QuoteGuessesListView(generics.ListAPIView):
+    """
+    List all guesses for a specific quote.
+
+    Only accessible to:
+    - Users who have guessed on this quote
+    - The author of the quote
+    - The quoted user
+    """
+    serializer_class = QuoteGuessListItemSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardResultsPagination
+
+    def get_quote(self):
+        quote_id = self.kwargs.get('quote_id')
+        return get_object_or_404(Quote, id=quote_id, is_active=True)
+
+    def check_access(self, quote):
+        user = self.request.user
+
+        # Author can view
+        if quote.author_id == user.id:
+            return True
+
+        # Quoted user can view
+        if quote.quoted_user_id == user.id:
+            return True
+
+        # Users who have guessed can view
+        if QuoteGuess.objects.filter(quote=quote, user=user).exists():
+            return True
+
+        return False
+
+    def get_queryset(self):
+        quote = self.get_quote()
+
+        if not self.check_access(quote):
+            raise exceptions.PermissionDenied(
+                "You must be the author, quoted user, or have guessed on this quote to view guesses."
+            )
+
+        return (
+            QuoteGuess.objects
+            .filter(quote=quote)
+            .select_related('user', 'guessed_user')
+            .order_by('-created_at')
+        )
 
 
 class RecentSearchView(APIView):

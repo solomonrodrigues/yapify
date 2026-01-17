@@ -57,6 +57,7 @@ urlpatterns = [
 
     # Guesses
     path("guesses/create/", views.QuoteGuessCreateView.as_view(), name="quote-guess-create"),
+    path("quotes/<int:quote_id>/guesses/", views.QuoteGuessesListView.as_view(), name="quote-guesses-list"),
 
     # Notifications
     path('notifications/', views.NotificationListView.as_view(), name='notifications'),
