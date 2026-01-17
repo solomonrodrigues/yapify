@@ -807,6 +807,60 @@ class HiddenQuoteListView(generics.ListAPIView):
         )
 
 
+class GuessableQuotesListView(generics.ListAPIView):
+    """
+    List quotes the current user can guess on (and hasn't yet).
+    """
+    serializer_class = QuoteSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardResultsPagination
+
+    def get_queryset(self):
+        user = self.request.user
+
+        # Get IDs of quotes user has already guessed
+        guessed_quote_ids = QuoteGuess.objects.filter(
+            user=user
+        ).values_list('quote_id', flat=True)
+
+        return (
+            Quote.objects
+            .filter(
+                is_active=True,
+                quoted_user__isnull=False,  # Must have a real user to guess
+            )
+            .exclude(author=user)  # Can't guess own quotes
+            .exclude(quoted_user=user)  # Can't guess quotes about yourself
+            .exclude(id__in=guessed_quote_ids)  # Haven't guessed yet
+            .exclude(hidden_quote_links__user=user)  # Not hidden
+            .order_by('-created_at')
+            .distinct()
+        )
+
+
+class RespondableQuotesListView(generics.ListAPIView):
+    """
+    List quotes the current user can respond to (confirm/deny) and hasn't yet.
+    """
+    serializer_class = QuoteSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardResultsPagination
+
+    def get_queryset(self):
+        user = self.request.user
+
+        return (
+            Quote.objects
+            .filter(
+                is_active=True,
+                quoted_user=user,  # Quotes about the current user
+                quoted_user_response__isnull=True,  # No response yet
+            )
+            .exclude(hidden_quote_links__user=user)  # Not hidden
+            .order_by('-created_at')
+        )
+
+
 class NotificationListView(generics.ListAPIView):
     """List user notifications"""
     serializer_class = NotificationSerializer

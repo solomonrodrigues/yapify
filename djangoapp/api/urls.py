@@ -54,6 +54,8 @@ urlpatterns = [
     path('quotes/<int:quote_id>/hide/', views.HideQuoteView.as_view(), name='quote-hide'),
     path('quotes/saved/', views.SavedQuoteListView.as_view(), name='quote-saved-list'),
     path('quotes/hidden/', views.HiddenQuoteListView.as_view(), name='quote-hidden-list'),
+    path('quotes/guessable/', views.GuessableQuotesListView.as_view(), name='quote-guessable-list'),
+    path('quotes/respondable/', views.RespondableQuotesListView.as_view(), name='quote-respondable-list'),
 
     # Guesses
     path("guesses/create/", views.QuoteGuessCreateView.as_view(), name="quote-guess-create"),
