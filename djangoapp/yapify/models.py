@@ -157,6 +157,30 @@ class EmailVerification(models.Model):
         return check_password(code, self.code_hash)
 
 
+class PasswordReset(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='password_resets')
+    code_hash = models.CharField(max_length=256)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    @classmethod
+    def create_for(cls, user, ttl_minutes: int = 15):
+        code = f"{random.randint(0, 999999):06d}"
+        obj = cls.objects.create(
+            user=user,
+            code_hash=make_password(code),
+            expires_at=timezone.now() + timedelta(minutes=ttl_minutes)
+        )
+        return obj, code
+
+    def is_valid(self) -> bool:
+        return self.used_at is None and timezone.now() <= self.expires_at
+
+    def matches(self, code: str) -> bool:
+        return check_password(code, self.code_hash)
+
+
 class Friendship(models.Model):
     """
     Model to handle friend relationships between users

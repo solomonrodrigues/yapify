@@ -11,7 +11,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from django.shortcuts import get_object_or_404
 from django.db.models import Q, Max, Prefetch
 from djangoapp.yapify.models import User, Friendship, Quote, QuoteWitness, QuoteLike, Notification, EmailVerification, \
-    QuoteGuess, RecentSearchItem, SavedQuote, HiddenQuote
+    QuoteGuess, RecentSearchItem, SavedQuote, HiddenQuote, PasswordReset
 from .serializers import (
     UserRegistrationSerializer,
     UserSerializer,
@@ -28,8 +28,11 @@ from .serializers import (
     QuoteGuessListItemSerializer,
     RecentSearchItemSerializer,
     RecentSearchCreateSerializer,
+    PasswordResetRequestSerializer,
+    PasswordResetConfirmSerializer,
+    DetailResponseSerializer,
 )
-from .utils import send_verification_email, normalize_email
+from .utils import send_verification_email, normalize_email, send_password_reset_email
 
 
 class StandardResultsPagination(PageNumberPagination):
@@ -112,6 +115,76 @@ class ResendVerificationView(APIView):
         ver, code = EmailVerification.create_for(user)
         send_verification_email(user, code)
         return Response({"detail": "Verification code sent."}, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    summary="Request password reset",
+    description="Request a password reset code to be sent to the provided email address.",
+    request=PasswordResetRequestSerializer,
+    responses={200: DetailResponseSerializer},
+    tags=["auth"],
+)
+class PasswordResetRequestView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        s = PasswordResetRequestSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        email = normalize_email(s.validated_data['email'])
+
+        try:
+            user = User.objects.get(email__iexact=email)
+        except User.DoesNotExist:
+            # Silent success to avoid user enumeration
+            return Response({"detail": "If an account exists, a reset code has been sent."}, status=status.HTTP_200_OK)
+
+        reset, code = PasswordReset.create_for(user)
+        send_password_reset_email(user, code)
+        return Response({"detail": "If an account exists, a reset code has been sent."}, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    summary="Confirm password reset",
+    description="Confirm password reset using the code received via email and set a new password.",
+    request=PasswordResetConfirmSerializer,
+    responses={
+        200: DetailResponseSerializer,
+        400: DetailResponseSerializer,
+    },
+    tags=["auth"],
+)
+class PasswordResetConfirmView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        s = PasswordResetConfirmSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        code = s.validated_data['code']
+        new_password = s.validated_data['new_password']
+
+        # Find valid unused reset that matches the code
+        valid_resets = PasswordReset.objects.filter(
+            used_at__isnull=True,
+            expires_at__gte=timezone.now()
+        ).select_related('user').order_by('-created_at')
+
+        matched_reset = None
+        for reset in valid_resets:
+            if reset.matches(code):
+                matched_reset = reset
+                break
+
+        if not matched_reset:
+            return Response({"detail": "Invalid or expired code."}, status=status.HTTP_400_BAD_REQUEST)
+
+        matched_reset.used_at = timezone.now()
+        matched_reset.save(update_fields=['used_at'])
+
+        user = matched_reset.user
+        user.set_password(new_password)
+        user.save(update_fields=['password'])
+
+        return Response({"detail": "Password reset successfully."}, status=status.HTTP_200_OK)
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
