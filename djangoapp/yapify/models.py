@@ -487,6 +487,11 @@ class Notification(models.Model):
         self.is_read = True
         self.save()
 
+    def mark_as_unread(self):
+        """Mark notification as unread"""
+        self.is_read = False
+        self.save()
+
 
 class QuoteGuess(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="guesses")

@@ -1095,6 +1095,48 @@ class MarkAllNotificationsReadView(APIView):
         )
 
 
+class MarkNotificationUnreadView(APIView):
+    """Mark notification as unread"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, notification_id):
+        notification = get_object_or_404(
+            Notification,
+            id=notification_id,
+            recipient=request.user
+        )
+        notification.mark_as_unread()
+        return Response({'message': 'Notification marked as unread'})
+
+
+class UnreadNotificationCountView(APIView):
+    """Return the count of unread notifications"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        blocked_ids = user.get_all_blocked_user_ids()
+        unread_count = Notification.objects.filter(
+            recipient=user,
+            is_read=False,
+        ).exclude(sender__id__in=blocked_ids).count()
+        return Response({'unread_count': unread_count})
+
+
+class DeleteNotificationView(APIView):
+    """Delete a single notification"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, notification_id):
+        notification = get_object_or_404(
+            Notification,
+            id=notification_id,
+            recipient=request.user
+        )
+        notification.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 class QuoteGuessCreateView(generics.CreateAPIView):
     queryset = QuoteGuess.objects.all()
     serializer_class = QuoteGuessSerializer
