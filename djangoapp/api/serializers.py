@@ -580,11 +580,9 @@ class RecentSearchItemSerializer(serializers.ModelSerializer):
         return None
 
 
-class ReportSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Report
-        fields = ('id', 'reason', 'description', 'created_at')
-        read_only_fields = ('id', 'created_at')
+class ReportRequestSerializer(serializers.Serializer):
+    reason = serializers.ChoiceField(choices=ReportReason.choices)
+    description = serializers.CharField(max_length=500, required=False, allow_blank=True, allow_null=True)
 
     def validate(self, attrs):
         if attrs.get('reason') == ReportReason.OTHER and not attrs.get('description'):
@@ -592,3 +590,10 @@ class ReportSerializer(serializers.ModelSerializer):
                 {"description": "Description is required when reason is 'other'."}
             )
         return attrs
+
+
+class ReportResponseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Report
+        fields = ('id', 'reason', 'description', 'created_at')
+        read_only_fields = fields

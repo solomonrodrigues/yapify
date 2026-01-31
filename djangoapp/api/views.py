@@ -31,7 +31,8 @@ from .serializers import (
     PasswordResetRequestSerializer,
     PasswordResetConfirmSerializer,
     DetailResponseSerializer,
-    ReportSerializer,
+    ReportRequestSerializer,
+    ReportResponseSerializer,
 )
 from .utils import send_verification_email, normalize_email, send_password_reset_email
 
@@ -1270,6 +1271,15 @@ class ReportQuoteView(APIView):
     """Report or unreport a quote."""
     permission_classes = [permissions.IsAuthenticated]
 
+    @extend_schema(
+        summary="Report a quote",
+        request=ReportRequestSerializer,
+        responses={
+            201: ReportResponseSerializer,
+            400: DetailResponseSerializer,
+        },
+        tags=["reports"],
+    )
     @transaction.atomic
     def post(self, request, quote_id):
         quote = get_object_or_404(Quote, id=quote_id, is_active=True)
@@ -1286,7 +1296,7 @@ class ReportQuoteView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        serializer = ReportSerializer(data=request.data)
+        serializer = ReportRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         snapshot = {
@@ -1317,10 +1327,19 @@ class ReportQuoteView(APIView):
         )
 
         return Response(
-            ReportSerializer(report).data,
+            ReportResponseSerializer(report).data,
             status=status.HTTP_201_CREATED,
         )
 
+    @extend_schema(
+        summary="Cancel a quote report",
+        request=None,
+        responses={
+            204: OpenApiResponse(description="Report cancelled"),
+            400: DetailResponseSerializer,
+        },
+        tags=["reports"],
+    )
     @transaction.atomic
     def delete(self, request, quote_id):
         quote = get_object_or_404(Quote, id=quote_id, is_active=True)
@@ -1343,6 +1362,15 @@ class ReportUserView(APIView):
     """Report or unreport a user."""
     permission_classes = [permissions.IsAuthenticated]
 
+    @extend_schema(
+        summary="Report a user",
+        request=ReportRequestSerializer,
+        responses={
+            201: ReportResponseSerializer,
+            400: DetailResponseSerializer,
+        },
+        tags=["reports"],
+    )
     @transaction.atomic
     def post(self, request, user_id):
         target = get_object_or_404(User, id=user_id, is_active=True)
@@ -1359,7 +1387,7 @@ class ReportUserView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        serializer = ReportSerializer(data=request.data)
+        serializer = ReportRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         snapshot = {
@@ -1380,10 +1408,19 @@ class ReportUserView(APIView):
         )
 
         return Response(
-            ReportSerializer(report).data,
+            ReportResponseSerializer(report).data,
             status=status.HTTP_201_CREATED,
         )
 
+    @extend_schema(
+        summary="Cancel a user report",
+        request=None,
+        responses={
+            204: OpenApiResponse(description="Report cancelled"),
+            400: DetailResponseSerializer,
+        },
+        tags=["reports"],
+    )
     @transaction.atomic
     def delete(self, request, user_id):
         target = get_object_or_404(User, id=user_id, is_active=True)
