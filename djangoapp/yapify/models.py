@@ -9,7 +9,7 @@ from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 
-from .choices import ProfileColor, QuoteResponse, QuoteVisibility
+from .choices import ProfileColor, QuoteResponse, QuoteVisibility, ReportReason
 from .managers import MyUserManager
 from .utils import get_random_color
 from .validators import yapify_username_validator
@@ -596,3 +596,70 @@ class RecentSearchItem(models.Model):
         tgt = self.user_target_id or self.quote_target_id
         kind = "user" if self.user_target_id else "quote"
         return f"{self.owner_id} → {kind}:{tgt} @ {self.touched_at}"
+
+
+class Report(models.Model):
+    reporter = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='submitted_reports',
+    )
+    reason = models.CharField(max_length=20, choices=ReportReason.choices)
+    description = models.TextField(max_length=500, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    # XOR targets — exactly one must be set.
+    # SET_NULL so the report survives if the target is deleted.
+    reported_quote = models.ForeignKey(
+        Quote,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reports',
+    )
+    reported_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reports_against',
+    )
+
+    # Snapshot of the reported content at the time the report was filed,
+    # so admins can review even after the original is deleted.
+    content_snapshot = models.JSONField()
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [
+            # Prevent duplicate reports per reporter+quote
+            models.UniqueConstraint(
+                fields=["reporter", "reported_quote"],
+                condition=Q(reported_quote__isnull=False),
+                name="unique_report_reporter_quote",
+            ),
+            # Prevent duplicate reports per reporter+user
+            models.UniqueConstraint(
+                fields=["reporter", "reported_user"],
+                condition=Q(reported_user__isnull=False),
+                name="unique_report_reporter_user",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["reporter", "created_at"]),
+            models.Index(fields=["reported_quote"]),
+            models.Index(fields=["reported_user"]),
+        ]
+
+    def clean(self):
+        # Can't report your own quote
+        if self.reported_quote and self.reported_quote.author_id == self.reporter_id:
+            raise ValidationError("You cannot report your own quote.")
+        # Can't report yourself
+        if self.reported_user_id and self.reported_user_id == self.reporter_id:
+            raise ValidationError("You cannot report yourself.")
+
+    def __str__(self):
+        if self.reported_quote_id:
+            return f"Report #{self.id} by {self.reporter_id} on quote #{self.reported_quote_id}"
+        return f"Report #{self.id} by {self.reporter_id} on user #{self.reported_user_id}"

@@ -3,7 +3,7 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils.translation import gettext_lazy as _
 from .models import (
     User, Friendship, Quote, QuoteWitness, QuoteLike, Notification, EmailVerification, QuoteGuess,
-    SavedQuote, HiddenQuote, RecentSearchItem,
+    SavedQuote, HiddenQuote, RecentSearchItem, Report,
 )
 
 
@@ -199,5 +199,48 @@ class RecentSearchItemAdmin(admin.ModelAdmin):
             return str(obj.user_target)
         if obj.quote_target:
             return obj.quote_target.text[:50] + "…" if obj.quote_target.text else ""
+        return "-"
+    target_display.short_description = "Target"
+
+
+@admin.register(Report)
+class ReportAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "reporter",
+        "target_type",
+        "target_display",
+        "reason",
+        "created_at",
+    )
+    list_filter = ("reason", "created_at")
+    search_fields = (
+        "reporter__email",
+        "reporter__username",
+        "reported_quote__text",
+        "reported_user__email",
+        "reported_user__username",
+    )
+    autocomplete_fields = ("reporter", "reported_quote", "reported_user")
+    readonly_fields = ("created_at", "content_snapshot")
+
+    def target_type(self, obj):
+        snapshot = obj.content_snapshot or {}
+        return snapshot.get("type", "unknown").capitalize()
+    target_type.short_description = "Target Type"
+
+    def target_display(self, obj):
+        # Prefer live data, fall back to snapshot
+        if obj.reported_quote:
+            return obj.reported_quote.text[:50] + "…" if obj.reported_quote.text else ""
+        if obj.reported_user:
+            return str(obj.reported_user)
+        # Target was deleted — use snapshot
+        snapshot = obj.content_snapshot or {}
+        if snapshot.get("type") == "quote":
+            text = snapshot.get("text", "")
+            return (text[:50] + "…" if len(text) > 50 else text) + " [deleted]"
+        if snapshot.get("type") == "user":
+            return f'{snapshot.get("username", "?")} [deleted]'
         return "-"
     target_display.short_description = "Target"

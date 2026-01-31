@@ -13,8 +13,9 @@ from django.conf import settings
 from django.utils import timezone
 
 from djangoapp.yapify.models import (
-    User, Friendship, Quote, QuoteWitness, QuoteLike, Notification, QuoteGuess, RecentSearchItem
+    User, Friendship, Quote, QuoteWitness, QuoteLike, Notification, QuoteGuess, RecentSearchItem, Report
 )
+from djangoapp.yapify.choices import ReportReason
 
 
 class MinimalUserSerializer(serializers.ModelSerializer):
@@ -577,3 +578,17 @@ class RecentSearchItemSerializer(serializers.ModelSerializer):
         if obj.quote_target_id and obj.quote_target:
             return MinimalQuoteSerializer(obj.quote_target).data
         return None
+
+
+class ReportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Report
+        fields = ('id', 'reason', 'description', 'created_at')
+        read_only_fields = ('id', 'created_at')
+
+    def validate(self, attrs):
+        if attrs.get('reason') == ReportReason.OTHER and not attrs.get('description'):
+            raise serializers.ValidationError(
+                {"description": "Description is required when reason is 'other'."}
+            )
+        return attrs

@@ -11,7 +11,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from django.shortcuts import get_object_or_404
 from django.db.models import Q, Max, Prefetch
 from djangoapp.yapify.models import User, Friendship, Quote, QuoteWitness, QuoteLike, Notification, EmailVerification, \
-    QuoteGuess, RecentSearchItem, SavedQuote, HiddenQuote, PasswordReset
+    QuoteGuess, RecentSearchItem, SavedQuote, HiddenQuote, PasswordReset, Report
 from .serializers import (
     UserRegistrationSerializer,
     UserSerializer,
@@ -31,6 +31,7 @@ from .serializers import (
     PasswordResetRequestSerializer,
     PasswordResetConfirmSerializer,
     DetailResponseSerializer,
+    ReportSerializer,
 )
 from .utils import send_verification_email, normalize_email, send_password_reset_email
 
@@ -1261,5 +1262,141 @@ class RecentSearchView(APIView):
             if query is not None:
                 rec.last_query = query
             rec.save(update_fields=["touched_at", "last_query"])
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ReportQuoteView(APIView):
+    """Report or unreport a quote."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request, quote_id):
+        quote = get_object_or_404(Quote, id=quote_id, is_active=True)
+
+        if quote.author_id == request.user.id:
+            return Response(
+                {'detail': 'You cannot report your own quote.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if Report.objects.filter(reporter=request.user, reported_quote=quote).exists():
+            return Response(
+                {'detail': 'You have already reported this quote.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = ReportSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        snapshot = {
+            'type': 'quote',
+            'quote_id': quote.id,
+            'text': quote.text,
+            'context': quote.context,
+            'author': {
+                'id': quote.author.id,
+                'username': quote.author.username,
+                'display_name': quote.author.display_name,
+            },
+            'quoted_user': {
+                'id': quote.quoted_user.id,
+                'username': quote.quoted_user.username,
+                'display_name': quote.quoted_user.display_name,
+            } if quote.quoted_user else None,
+            'quoted_name': quote.quoted_name,
+            'created_at': quote.created_at.isoformat(),
+        }
+
+        report = Report.objects.create(
+            reporter=request.user,
+            reported_quote=quote,
+            reason=serializer.validated_data['reason'],
+            description=serializer.validated_data.get('description'),
+            content_snapshot=snapshot,
+        )
+
+        return Response(
+            ReportSerializer(report).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    @transaction.atomic
+    def delete(self, request, quote_id):
+        quote = get_object_or_404(Quote, id=quote_id, is_active=True)
+
+        deleted_count, _ = Report.objects.filter(
+            reporter=request.user,
+            reported_quote=quote,
+        ).delete()
+
+        if not deleted_count:
+            return Response(
+                {'detail': 'You have not reported this quote.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ReportUserView(APIView):
+    """Report or unreport a user."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request, user_id):
+        target = get_object_or_404(User, id=user_id, is_active=True)
+
+        if target.id == request.user.id:
+            return Response(
+                {'detail': 'You cannot report yourself.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if Report.objects.filter(reporter=request.user, reported_user=target).exists():
+            return Response(
+                {'detail': 'You have already reported this user.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = ReportSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        snapshot = {
+            'type': 'user',
+            'user_id': target.id,
+            'username': target.username,
+            'display_name': target.display_name,
+            'email': target.email,
+            'bio': target.bio,
+        }
+
+        report = Report.objects.create(
+            reporter=request.user,
+            reported_user=target,
+            reason=serializer.validated_data['reason'],
+            description=serializer.validated_data.get('description'),
+            content_snapshot=snapshot,
+        )
+
+        return Response(
+            ReportSerializer(report).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    @transaction.atomic
+    def delete(self, request, user_id):
+        target = get_object_or_404(User, id=user_id, is_active=True)
+
+        deleted_count, _ = Report.objects.filter(
+            reporter=request.user,
+            reported_user=target,
+        ).delete()
+
+        if not deleted_count:
+            return Response(
+                {'detail': 'You have not reported this user.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         return Response(status=status.HTTP_204_NO_CONTENT)

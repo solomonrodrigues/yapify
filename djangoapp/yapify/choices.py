@@ -25,3 +25,11 @@ class QuoteVisibility(models.TextChoices):
 class QuoteResponse(models.TextChoices):
     CONFIRMED = "confirmed", "Confirmed"
     DENIED = "denied", "Denied"
+
+
+class ReportReason(models.TextChoices):
+    INAPPROPRIATE = "inappropriate", "Inappropriate Content"
+    SPAM = "spam", "Spam"
+    HARASSMENT = "harassment", "Harassment"
+    FALSE_ATTRIBUTION = "false_attribution", "False Attribution"
+    OTHER = "other", "Other"

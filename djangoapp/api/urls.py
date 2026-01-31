@@ -47,6 +47,10 @@ urlpatterns = [
     path('users/<int:user_id>/block/', views.BlockUserView.as_view(), name='block-user'),
     path('users/blocked/', views.BlockedUsersListView.as_view(), name='blocked-users-list'),
 
+    # Reports
+    path('quotes/<int:quote_id>/report/', views.ReportQuoteView.as_view(), name='quote-report'),
+    path('users/<int:user_id>/report/', views.ReportUserView.as_view(), name='user-report'),
+
     # Quotes
     path('quotes/', views.QuoteListCreateView.as_view(), name='quote_list_create'),
     path('quotes/<int:pk>/', views.QuoteDetailView.as_view(), name='quote_detail'),
