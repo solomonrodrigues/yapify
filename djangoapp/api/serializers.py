@@ -89,7 +89,8 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id', 'email', 'username', 'display_name', 'bio', 'date_joined',
-                  'friends_count', 'quotes_posted', 'quotes_received', 'quote_visibility', 'profile_color')
+                  'friends_count', 'quotes_posted', 'quotes_received', 'quote_visibility', 'profile_color',
+                  'current_streak', 'longest_streak')
         read_only_fields = ('id', 'email', 'date_joined')
 
     def get_friends_count(self, obj):
@@ -425,6 +426,7 @@ class PublicUserSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'username', 'display_name', 'profile_color', 'date_joined',
             'friends_count', 'quotes_posted', 'quotes_received',
+            'current_streak', 'longest_streak',
             'recent_quotes_posted', 'friendship', 'quotes_i_made_about_user'
         ]
 
