@@ -1267,18 +1267,29 @@ class RecentSearchView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @extend_schema(
-        summary="Delete a recent search item",
+        summary="Delete recent search items for a target",
         parameters=[
-            OpenApiParameter(name="id", required=True, type=int, description="Item ID to delete"),
+            OpenApiParameter(name="kind", required=True, type=str, description="user | quote"),
+            OpenApiParameter(name="target_id", required=True, type=int, description="Target user or quote ID"),
         ],
         responses={204: OpenApiResponse(description="Deleted")},
         tags=["recents"],
     )
     def delete(self, request):
-        item_id = request.query_params.get("id")
-        if item_id is None:
-            return Response({"detail": "Query parameter 'id' is required."}, status=status.HTTP_400_BAD_REQUEST)
-        deleted, _ = RecentSearchItem.objects.filter(owner=request.user, pk=item_id).delete()
+        kind = request.query_params.get("kind")
+        target_id = request.query_params.get("target_id")
+        if not kind or not target_id:
+            return Response({"detail": "Query parameters 'kind' and 'target_id' are required."}, status=status.HTTP_400_BAD_REQUEST)
+        if kind not in ("user", "quote"):
+            return Response({"detail": "kind must be 'user' or 'quote'."}, status=status.HTTP_400_BAD_REQUEST)
+
+        qs = RecentSearchItem.objects.filter(owner=request.user)
+        if kind == "user":
+            qs = qs.filter(user_target_id=target_id)
+        else:
+            qs = qs.filter(quote_target_id=target_id)
+
+        deleted, _ = qs.delete()
         if not deleted:
             raise NotFound("Recent search item not found.")
         return Response(status=status.HTTP_204_NO_CONTENT)
