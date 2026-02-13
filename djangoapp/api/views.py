@@ -1266,6 +1266,23 @@ class RecentSearchView(APIView):
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    @extend_schema(
+        summary="Delete a recent search item",
+        parameters=[
+            OpenApiParameter(name="id", required=True, type=int, description="Item ID to delete"),
+        ],
+        responses={204: OpenApiResponse(description="Deleted")},
+        tags=["recents"],
+    )
+    def delete(self, request):
+        item_id = request.query_params.get("id")
+        if item_id is None:
+            return Response({"detail": "Query parameter 'id' is required."}, status=status.HTTP_400_BAD_REQUEST)
+        deleted, _ = RecentSearchItem.objects.filter(owner=request.user, pk=item_id).delete()
+        if not deleted:
+            raise NotFound("Recent search item not found.")
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 class ReportQuoteView(APIView):
     """Report or unreport a quote."""
