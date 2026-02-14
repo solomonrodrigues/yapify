@@ -665,17 +665,14 @@ class QuoteSearchView(generics.ListAPIView):
     """
     Search quotes by text, quoted user username, display name, or quoted_name.
     Supports optional filtering by year and month.
+
+    For quotes that are guessable by the requesting user (not yet guessed,
+    user is not the author, and guess options exist), only text matches are
+    returned to avoid leaking attribution through search.
     """
     serializer_class = QuoteSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = StandardResultsPagination
-    filter_backends = [filters.SearchFilter]
-    search_fields = [
-        'text',
-        'quoted_name',
-        'quoted_user__username',
-        'quoted_user__display_name'
-    ]
 
     def get_queryset(self):
         user = self.request.user
@@ -701,7 +698,39 @@ class QuoteSearchView(generics.ListAPIView):
             month = int(month)
             qs = qs.filter(created_at__month=month)
 
-        return qs
+        search = self.request.query_params.get('search', '').strip()
+        if not search:
+            return qs.none()
+
+        # Attribution fields match (author name/username, quoted user name/username, quoted_name)
+        attribution_q = (
+            Q(quoted_name__icontains=search)
+            | Q(quoted_user__username__icontains=search)
+            | Q(quoted_user__display_name__icontains=search)
+        )
+        text_q = Q(text__icontains=search)
+
+        # IDs of quotes this user has already guessed
+        guessed_quote_ids = QuoteGuess.objects.filter(
+            user=user
+        ).values_list('quote_id', flat=True)
+
+        # A quote is guessable if: has a quoted_user, user is not the author,
+        # user is not the quoted_user, and user hasn't guessed yet.
+        guessable_q = (
+            Q(quoted_user__isnull=False)
+            & ~Q(author=user)
+            & ~Q(quoted_user=user)
+            & ~Q(id__in=guessed_quote_ids)
+        )
+
+        # Non-guessable quotes: match on any field
+        non_guessable_matches = qs.filter(~guessable_q).filter(text_q | attribution_q)
+
+        # Guessable quotes: only match on text
+        guessable_matches = qs.filter(guessable_q).filter(text_q)
+
+        return non_guessable_matches.union(guessable_matches)
 
 
 class QuoteDetailView(generics.RetrieveUpdateDestroyAPIView):
