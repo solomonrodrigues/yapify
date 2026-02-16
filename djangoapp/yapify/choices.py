@@ -17,10 +17,6 @@ class ProfileColor(models.TextChoices):
     MAGENTA = "MAGENTA", "Magenta"
 
 
-class QuoteVisibility(models.TextChoices):
-    MUTUALS = "mutuals", "Mutual Friends Only"
-    EXTENDED = "extended", "Friends of Friends"
-
 
 class QuoteResponse(models.TextChoices):
     CONFIRMED = "confirmed", "Confirmed"

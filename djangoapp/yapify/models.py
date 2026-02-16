@@ -9,7 +9,7 @@ from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 
-from .choices import ProfileColor, QuoteResponse, QuoteVisibility, ReportReason
+from .choices import ProfileColor, QuoteResponse, ReportReason
 from .managers import MyUserManager
 from .utils import get_random_color
 from .validators import yapify_username_validator
@@ -32,17 +32,6 @@ class User(AbstractUser):
     # Profile fields
     bio = models.TextField(max_length=500, blank=True, null=True)
     profile_color = models.CharField(choices=ProfileColor, default=get_random_color)
-    quote_visibility = models.CharField(
-        max_length=20,
-        choices=QuoteVisibility.choices,
-        default=QuoteVisibility.EXTENDED,
-        help_text=(
-            "Controls who can see your identity when you are quoted by someone else. "
-            "Mutual Friends Only = only people who are friends with both you and the poster. "
-            "Friends of Friends = also visible to the poster’s friends who may not know you."
-        ),
-    )
-
     # Guess streak
     current_streak = models.PositiveIntegerField(default=0)
     longest_streak = models.PositiveIntegerField(default=0)

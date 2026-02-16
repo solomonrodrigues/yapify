@@ -36,7 +36,7 @@ djangoapp/
 │   ├── models.py        # 12 data models (User, Quote, Friendship, etc.)
 │   ├── admin.py         # Django admin configuration
 │   ├── managers.py      # Custom user manager (email-based auth)
-│   ├── choices.py       # ProfileColor, QuoteVisibility enums
+│   ├── choices.py       # ProfileColor, QuoteResponse, ReportReason enums
 │   ├── validators.py    # Username validation rules
 │   └── urls.py          # Root URL routing
 │
@@ -49,7 +49,7 @@ djangoapp/
 
 ## Key Domain Concepts
 
-- **User**: Custom auth model with email-based login, display_name, bio, profile_color, quote_visibility, streak tracking
+- **User**: Custom auth model with email-based login, display_name, bio, profile_color, streak tracking
 - **Friendship**: Friend relationships with statuses (pending, accepted, rejected, blocked). Users can only quote their friends.
 - **Quote**: Posted quotes with text, context, author, and a quoted_user (friend) or quoted_name (non-user)
 - **QuoteWitness**: Witnesses verify they saw a quote happen
@@ -68,7 +68,8 @@ djangoapp/
 
 - Usernames must be lowercase, containing only letters, dots, and underscores
 - Users can only quote their friends (enforced in model validation)
-- Quote visibility settings control who sees the user when quoted (mutuals only vs friends of friends)
+- Quote visibility uses a union model: a quote is visible to the union of the author's friends and the quoted user's friends
+- Viewing a user's posted/received quotes requires being friends with them (or being the user themselves)
 - No API versioning - uses minimum app version enforcement via `X-App-Version` header
 - Email sending disabled by default (`EMAILS_ENABLED = False` in settings)
 

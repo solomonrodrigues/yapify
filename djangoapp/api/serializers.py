@@ -23,8 +23,8 @@ class MinimalUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'display_name', 'quote_visibility', 'profile_color')
-        read_only_fields = ('id', 'username', 'display_name', 'quote_visibility', 'profile_color')
+        fields = ('id', 'username', 'display_name', 'profile_color')
+        read_only_fields = ('id', 'username', 'display_name', 'profile_color')
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -89,7 +89,7 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id', 'email', 'username', 'display_name', 'bio', 'date_joined',
-                  'friends_count', 'quotes_posted', 'quotes_received', 'quote_visibility', 'profile_color',
+                  'friends_count', 'quotes_posted', 'quotes_received', 'profile_color',
                   'current_streak', 'longest_streak')
         read_only_fields = ('id', 'email', 'date_joined')
 
@@ -388,6 +388,13 @@ class QuoteSerializer(serializers.ModelSerializer):
         validated_data['author'] = self.context['request'].user
         return super().create(validated_data)
 
+    def update(self, instance, validated_data):
+        quoted_user = validated_data.pop('quoted_user_id', None)
+        if quoted_user is not None:
+            validated_data['quoted_user'] = quoted_user
+            validated_data.setdefault('quoted_name', None)
+        return super().update(instance, validated_data)
+
 
 class QuoteLikeSerializer(serializers.ModelSerializer):
     """Serializer for quote likes"""
@@ -449,10 +456,34 @@ class PublicUserSerializer(serializers.ModelSerializer):
     @extend_schema_field(QuoteSerializer(many=True))
     def get_recent_quotes_posted(self, obj):
         """Recent quotes posted by this user (limit 10)"""
-        recent_quotes = obj.posted_quotes.filter(
-            is_active=True
-        ).order_by('-created_at')[:10]
-        return QuoteSerializer(recent_quotes, many=True).data
+        request = self.context.get('request')
+        user = request.user if request else None
+
+        qs = obj.posted_quotes.filter(is_active=True)
+
+        if user and user.is_authenticated:
+            blocked_ids = user.get_all_blocked_user_ids()
+            friends = user.get_friends().exclude(id__in=blocked_ids)
+            friend_ids = set(friends.values_list('id', flat=True))
+
+            # Exclude hidden quotes and blocked users' quotes
+            qs = (
+                qs
+                .exclude(hidden_quote_links__user=user)
+                .exclude(quoted_user__id__in=blocked_ids)
+            )
+
+            # Union visibility: user must be friends with author or quoted_user
+            # (or be the author/quoted_user themselves)
+            qs = qs.filter(
+                Q(author__id__in=friend_ids) |
+                Q(quoted_user__id__in=friend_ids) |
+                Q(author=user) |
+                Q(quoted_user=user)
+            )
+
+        recent_quotes = qs.order_by('-created_at').distinct()[:10]
+        return QuoteSerializer(recent_quotes, many=True, context=self.context).data
 
     @extend_schema_field(FriendshipSerializer(many=False, allow_null=True))
     def get_friendship(self, obj):

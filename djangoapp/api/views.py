@@ -351,8 +351,9 @@ class UserPostedQuotesListView(generics.ListAPIView):
     lookup_url_kwarg = 'user_id'
 
     def get_queryset(self):
+        user = self.request.user
         user_id = self.kwargs.get(self.lookup_url_kwarg)
-        blocked_ids = self.request.user.get_all_blocked_user_ids()
+        blocked_ids = user.get_all_blocked_user_ids()
 
         # Return 404 if target user is blocked
         if user_id in blocked_ids:
@@ -360,11 +361,20 @@ class UserPostedQuotesListView(generics.ListAPIView):
 
         target_user = get_object_or_404(User, id=user_id, is_active=True)
 
+        # Must be friends with target user or be the target user
+        if target_user != user:
+            is_friend = Friendship.objects.filter(
+                Q(sender=user, receiver=target_user, status='accepted') |
+                Q(sender=target_user, receiver=user, status='accepted')
+            ).exists()
+            if not is_friend:
+                raise exceptions.PermissionDenied("You can only view quotes of your friends.")
+
         return (
             Quote.objects
             .filter(author=target_user, is_active=True)
-            .exclude(hidden_quote_links__user=self.request.user)
-            .exclude(quoted_user__id__in=blocked_ids)  # Exclude quotes about blocked users
+            .exclude(hidden_quote_links__user=user)
+            .exclude(quoted_user__id__in=blocked_ids)
             .order_by('-created_at')
         )
 
@@ -377,8 +387,9 @@ class UserReceivedQuotesListView(generics.ListAPIView):
     lookup_url_kwarg = 'user_id'
 
     def get_queryset(self):
+        user = self.request.user
         user_id = self.kwargs.get(self.lookup_url_kwarg)
-        blocked_ids = self.request.user.get_all_blocked_user_ids()
+        blocked_ids = user.get_all_blocked_user_ids()
 
         # Return 404 if target user is blocked
         if user_id in blocked_ids:
@@ -386,11 +397,20 @@ class UserReceivedQuotesListView(generics.ListAPIView):
 
         target_user = get_object_or_404(User, id=user_id, is_active=True)
 
+        # Must be friends with target user or be the target user
+        if target_user != user:
+            is_friend = Friendship.objects.filter(
+                Q(sender=user, receiver=target_user, status='accepted') |
+                Q(sender=target_user, receiver=user, status='accepted')
+            ).exists()
+            if not is_friend:
+                raise exceptions.PermissionDenied("You can only view quotes of your friends.")
+
         return (
             Quote.objects
             .filter(quoted_user=target_user, is_active=True)
-            .exclude(hidden_quote_links__user=self.request.user)
-            .exclude(author__id__in=blocked_ids)  # Exclude quotes by blocked users
+            .exclude(hidden_quote_links__user=user)
+            .exclude(author__id__in=blocked_ids)
             .order_by('-created_at')
         )
 
@@ -617,6 +637,7 @@ class QuoteListCreateView(generics.ListCreateAPIView):
             Quote.objects
             .filter(
                 Q(author__in=friends) |
+                Q(quoted_user__in=friends) |
                 Q(author=user) |
                 Q(quoted_user=user)
             )
@@ -677,10 +698,17 @@ class QuoteSearchView(generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user
         blocked_ids = user.get_all_blocked_user_ids()
+        friends = user.get_friends().exclude(id__in=blocked_ids)
 
         qs = (
             Quote.objects
             .filter(is_active=True)
+            .filter(
+                Q(author__in=friends) |
+                Q(quoted_user__in=friends) |
+                Q(author=user) |
+                Q(quoted_user=user)
+            )
             .exclude(hidden_quote_links__user=user)
             .exclude(author__id__in=blocked_ids)
             .exclude(quoted_user__id__in=blocked_ids)
@@ -739,7 +767,23 @@ class QuoteDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Quote.objects.filter(is_active=True)
+        user = self.request.user
+        blocked_ids = user.get_all_blocked_user_ids()
+        friends = user.get_friends().exclude(id__in=blocked_ids)
+
+        return (
+            Quote.objects
+            .filter(is_active=True)
+            .filter(
+                Q(author__in=friends) |
+                Q(quoted_user__in=friends) |
+                Q(author=user) |
+                Q(quoted_user=user)
+            )
+            .exclude(author__id__in=blocked_ids)
+            .exclude(quoted_user__id__in=blocked_ids)
+            .distinct()
+        )
 
     def perform_update(self, serializer):
         # Only allow author to update
@@ -987,6 +1031,7 @@ class SavedQuoteListView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
+        blocked_ids = user.get_all_blocked_user_ids()
 
         return (
             Quote.objects
@@ -994,6 +1039,8 @@ class SavedQuoteListView(generics.ListAPIView):
                 saved_quote_links__user=user,
                 is_active=True,
             )
+            .exclude(author__id__in=blocked_ids)
+            .exclude(quoted_user__id__in=blocked_ids)
             .order_by('-saved_quote_links__created_at')
             .distinct()
         )
@@ -1009,6 +1056,7 @@ class HiddenQuoteListView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
+        blocked_ids = user.get_all_blocked_user_ids()
 
         return (
             Quote.objects
@@ -1016,6 +1064,8 @@ class HiddenQuoteListView(generics.ListAPIView):
                 hidden_quote_links__user=user,
                 is_active=True,
             )
+            .exclude(author__id__in=blocked_ids)
+            .exclude(quoted_user__id__in=blocked_ids)
             .order_by('-hidden_quote_links__created_at')
             .distinct()
         )
