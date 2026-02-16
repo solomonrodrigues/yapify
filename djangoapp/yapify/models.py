@@ -91,10 +91,13 @@ class User(AbstractUser):
         )
 
     def get_all_blocked_user_ids(self):
-        """Return IDs of users blocked by or blocking this user (for filtering)."""
-        blocked_ids = set(self.get_blocked_users().values_list('id', flat=True))
-        blocked_by_ids = set(self.get_blocked_by_users().values_list('id', flat=True))
-        return blocked_ids | blocked_by_ids
+        """Return IDs of users blocked by or blocking this user (for filtering).
+        Cached on the instance so repeated calls within a request avoid extra queries."""
+        if not hasattr(self, '_cached_blocked_ids'):
+            blocked_ids = set(self.get_blocked_users().values_list('id', flat=True))
+            blocked_by_ids = set(self.get_blocked_by_users().values_list('id', flat=True))
+            self._cached_blocked_ids = blocked_ids | blocked_by_ids
+        return self._cached_blocked_ids
 
     def get_random_guess_options(self, exclude=None, count=3, seed=None):
         """Return random friends for multiple choice, optionally excluding some.

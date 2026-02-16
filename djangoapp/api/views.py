@@ -84,6 +84,22 @@ class OptimizedQuoteViewMixin:
         return context
 
 
+def get_optimized_user_queryset(queryset):
+    """Annotate User querysets with counts to eliminate per-user N+1 queries in PublicUserSerializer."""
+    return queryset.annotate(
+        annotated_friends_count=(
+            Count('sent_friendships', filter=Q(sent_friendships__status='accepted'), distinct=True)
+            + Count('received_friendships', filter=Q(received_friendships__status='accepted'), distinct=True)
+        ),
+        annotated_quotes_posted=Count(
+            'posted_quotes', filter=Q(posted_quotes__is_active=True), distinct=True,
+        ),
+        annotated_quotes_received=Count(
+            'quotes_about_me', filter=Q(quotes_about_me__is_active=True), distinct=True,
+        ),
+    )
+
+
 class StandardResultsPagination(PageNumberPagination):
     """Standard pagination configuration"""
     page_size = 20
@@ -261,7 +277,8 @@ class UserSearchView(generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user
         blocked_ids = user.get_all_blocked_user_ids()
-        return User.objects.exclude(id=user.id).exclude(id__in=blocked_ids)
+        qs = User.objects.exclude(id=user.id).exclude(id__in=blocked_ids)
+        return get_optimized_user_queryset(qs)
 
 
 class FriendListView(generics.ListAPIView):
@@ -285,7 +302,7 @@ class FriendListView(generics.ListAPIView):
                 Q(display_name__icontains=search_query)
             )
 
-        return friends_queryset
+        return get_optimized_user_queryset(friends_queryset)
 
 
 class RecentQuotedFriendsView(generics.ListAPIView):
@@ -308,7 +325,7 @@ class RecentQuotedFriendsView(generics.ListAPIView):
             latest_quote_date=Max('quotes_about_me__created_at')
         ).order_by('-latest_quote_date')[:5]
 
-        return quoted_friends
+        return get_optimized_user_queryset(quoted_friends)
 
 
 class UserFriendsListView(generics.ListAPIView):
@@ -349,7 +366,7 @@ class UserFriendsListView(generics.ListAPIView):
                 Q(display_name__icontains=search_query)
             )
 
-        return friends_queryset
+        return get_optimized_user_queryset(friends_queryset)
 
 
 class UserDetailView(generics.RetrieveAPIView):
@@ -369,12 +386,13 @@ class UserDetailView(generics.RetrieveAPIView):
         user_id = self.kwargs.get('user_id')
 
         try:
-            # Prefetch related quotes for efficiency
-            user = self.get_queryset().prefetch_related(
-                'posted_quotes',
-                Prefetch(
-                    'quotes_about_me',
-                    queryset=Quote.objects.filter(is_active=True)
+            user = get_optimized_user_queryset(
+                self.get_queryset().prefetch_related(
+                    'posted_quotes',
+                    Prefetch(
+                        'quotes_about_me',
+                        queryset=Quote.objects.filter(is_active=True)
+                    )
                 )
             ).get(id=user_id)
 
@@ -668,7 +686,7 @@ class BlockedUsersListView(generics.ListAPIView):
     pagination_class = StandardResultsPagination
 
     def get_queryset(self):
-        return self.request.user.get_blocked_users()
+        return get_optimized_user_queryset(self.request.user.get_blocked_users())
 
 
 class QuoteListCreateView(OptimizedQuoteViewMixin, generics.ListCreateAPIView):
@@ -924,9 +942,10 @@ class QuoteLikesListView(generics.ListAPIView):
         quote = get_object_or_404(Quote, id=quote_id, is_active=True)
         blocked_ids = self.request.user.get_all_blocked_user_ids()
 
-        return User.objects.filter(
+        qs = User.objects.filter(
             liked_quotes__quote=quote
         ).exclude(id__in=blocked_ids).order_by('-liked_quotes__created_at')
+        return get_optimized_user_queryset(qs)
 
 
 class QuoteWitnessesListView(generics.ListAPIView):
@@ -940,9 +959,10 @@ class QuoteWitnessesListView(generics.ListAPIView):
         quote = get_object_or_404(Quote, id=quote_id, is_active=True)
         blocked_ids = self.request.user.get_all_blocked_user_ids()
 
-        return User.objects.filter(
+        qs = User.objects.filter(
             witnessed_quotes__quote=quote
         ).exclude(id__in=blocked_ids).order_by('-witnessed_quotes__created_at')
+        return get_optimized_user_queryset(qs)
 
 
 class RespondToQuoteView(APIView):

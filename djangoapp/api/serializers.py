@@ -94,13 +94,16 @@ class UserSerializer(serializers.ModelSerializer):
         read_only_fields = ('id', 'email', 'date_joined')
 
     def get_friends_count(self, obj):
-        return obj.get_friends().count()
+        val = getattr(obj, 'annotated_friends_count', None)
+        return val if val is not None else obj.get_friends().count()
 
     def get_quotes_posted(self, obj):
-        return obj.posted_quotes.filter(is_active=True).count()
+        val = getattr(obj, 'annotated_quotes_posted', None)
+        return val if val is not None else obj.posted_quotes.filter(is_active=True).count()
 
     def get_quotes_received(self, obj):
-        return obj.quotes_about_me.filter(is_active=True).count()
+        val = getattr(obj, 'annotated_quotes_received', None)
+        return val if val is not None else obj.quotes_about_me.filter(is_active=True).count()
 
 
 class FriendshipSerializer(serializers.ModelSerializer):
@@ -483,15 +486,18 @@ class PublicUserSerializer(serializers.ModelSerializer):
 
     def get_friends_count(self, obj) -> int:
         """Total friends this user has"""
-        return obj.get_friends().count()
+        val = getattr(obj, 'annotated_friends_count', None)
+        return val if val is not None else obj.get_friends().count()
 
     def get_quotes_posted(self, obj) -> int:
         """Total quotes this user has posted"""
-        return obj.posted_quotes.filter(is_active=True).count()
+        val = getattr(obj, 'annotated_quotes_posted', None)
+        return val if val is not None else obj.posted_quotes.filter(is_active=True).count()
 
     def get_quotes_received(self, obj) -> int:
         """Total quotes about this user"""
-        return obj.quotes_about_me.filter(is_active=True).count()
+        val = getattr(obj, 'annotated_quotes_received', None)
+        return val if val is not None else obj.quotes_about_me.filter(is_active=True).count()
 
     @extend_schema_field(QuoteSerializer(many=True))
     def get_recent_quotes_posted(self, obj):
@@ -548,15 +554,18 @@ class PublicUserSerializer(serializers.ModelSerializer):
     @extend_schema_field(QuoteSerializer(many=True))
     def get_quotes_i_made_about_user(self, obj):
         """Quotes the current user has made about this user (limit 10)"""
+        from djangoapp.api.views import get_optimized_quote_queryset
+
         current_user = self.get_current_user()
         if current_user == obj:
             return []  # Don't show quotes about yourself when viewing own profile
 
-        my_quotes_about_user = obj.quotes_about_me.filter(
+        qs = obj.quotes_about_me.filter(
             author=current_user,
             is_active=True
-        ).order_by('-created_at')[:10]
-        return QuoteSerializer(my_quotes_about_user, many=True).data
+        ).order_by('-created_at')
+        qs = get_optimized_quote_queryset(qs, current_user)[:10]
+        return QuoteSerializer(qs, many=True, context=self.context).data
 
 
 class NotificationSerializer(serializers.ModelSerializer):
