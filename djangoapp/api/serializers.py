@@ -265,30 +265,44 @@ class QuoteSerializer(serializers.ModelSerializer):
         read_only_fields = ('id', 'author', 'created_at', 'updated_at', 'quoted_user_response')
 
     def get_witness_count(self, obj: Quote) -> int:
-        return obj.get_witness_count()
+        val = getattr(obj, 'annotated_witness_count', None)
+        return val if val is not None else obj.get_witness_count()
 
     def get_is_witnessed(self, obj: Quote) -> bool:
+        val = getattr(obj, 'annotated_is_witnessed', None)
+        if val is not None:
+            return val
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             return obj.witnesses.filter(witness=request.user).exists()
         return False
 
     def get_like_count(self, obj: Quote) -> int:
-        return obj.likes.count()
+        val = getattr(obj, 'annotated_like_count', None)
+        return val if val is not None else obj.likes.count()
 
     def get_is_liked(self, obj: Quote) -> bool:
+        val = getattr(obj, 'annotated_is_liked', None)
+        if val is not None:
+            return val
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             return obj.likes.filter(user=request.user).exists()
         return False
 
     def get_is_saved(self, obj: Quote) -> bool:
+        val = getattr(obj, 'annotated_is_saved', None)
+        if val is not None:
+            return val
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             return obj.saved_quote_links.filter(user=request.user).exists()
         return False
 
     def get_is_hidden(self, obj: Quote) -> bool:
+        val = getattr(obj, 'annotated_is_hidden', None)
+        if val is not None:
+            return val
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             return obj.hidden_quote_links.filter(user=request.user).exists()
@@ -311,7 +325,10 @@ class QuoteSerializer(serializers.ModelSerializer):
             return False
 
         # Cannot guess if already guessed
-        if QuoteGuess.objects.filter(user=user, quote=obj).exists():
+        has_guessed = getattr(obj, 'annotated_has_guessed', None)
+        if has_guessed is None:
+            has_guessed = QuoteGuess.objects.filter(user=user, quote=obj).exists()
+        if has_guessed:
             return False
 
         # Cannot guess if quote doesn't have a real user
@@ -319,13 +336,18 @@ class QuoteSerializer(serializers.ModelSerializer):
             return False
 
         # Cannot guess if there aren't enough options (need more than 1)
-        random_friends = user.get_random_guess_options(exclude=[obj.quoted_user], count=3)
-        if len(random_friends) == 0:
-            return False
-
-        return True
+        valid_friends = self.context.get('valid_friends')
+        if valid_friends is not None:
+            friends = [f for f in valid_friends if f.id != obj.quoted_user_id]
+            return len(friends) > 0
+        else:
+            random_friends = user.get_random_guess_options(exclude=[obj.quoted_user], count=3)
+            return len(random_friends) > 0
 
     def get_has_guessed(self, obj) -> bool:
+        val = getattr(obj, 'annotated_has_guessed', None)
+        if val is not None:
+            return val
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             return QuoteGuess.objects.filter(user=request.user, quote=obj).exists()
@@ -333,6 +355,12 @@ class QuoteSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(QuoteGuessSerializer(many=False, allow_null=True))
     def get_guess(self, obj) -> Optional[QuoteGuessSerializer]:
+        # Try prefetched user_guesses first
+        user_guesses = getattr(obj, 'user_guesses', None)
+        if user_guesses is not None:
+            if user_guesses:
+                return QuoteGuessSerializer(user_guesses[0]).data
+            return None
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             guess = QuoteGuess.objects.filter(user=request.user, quote=obj).first()
@@ -341,6 +369,10 @@ class QuoteSerializer(serializers.ModelSerializer):
         return None
 
     def get_remaining_skips(self, obj) -> int:
+        # Use cached value from context if available
+        cached = self.context.get('remaining_skips')
+        if cached is not None:
+            return cached
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
             return 0
@@ -361,14 +393,22 @@ class QuoteSerializer(serializers.ModelSerializer):
         if not obj.quoted_user:
             return []
 
-        # deterministic seed per user + quote
         seed = hash(f"{user.id}-{obj.id}")
-        random_friends = user.get_random_guess_options(exclude=[obj.quoted_user], count=3, seed=seed)
+
+        valid_friends = self.context.get('valid_friends')
+        if valid_friends is not None:
+            friends = [f for f in valid_friends if f.id != obj.quoted_user_id]
+            if not friends:
+                return []
+            rng = random.Random(seed)
+            random_friends = rng.sample(friends, min(len(friends), 3))
+        else:
+            random_friends = user.get_random_guess_options(exclude=[obj.quoted_user], count=3, seed=seed)
 
         # Combine correct answer
         options = random_friends + [obj.quoted_user]
 
-        # shuffle again deterministically
+        # shuffle deterministically
         rng = random.Random(seed)
         rng.shuffle(options)
 
@@ -456,6 +496,8 @@ class PublicUserSerializer(serializers.ModelSerializer):
     @extend_schema_field(QuoteSerializer(many=True))
     def get_recent_quotes_posted(self, obj):
         """Recent quotes posted by this user (limit 10)"""
+        from djangoapp.api.views import get_optimized_quote_queryset
+
         request = self.context.get('request')
         user = request.user if request else None
 
@@ -481,6 +523,8 @@ class PublicUserSerializer(serializers.ModelSerializer):
                 Q(author=user) |
                 Q(quoted_user=user)
             )
+
+            qs = get_optimized_quote_queryset(qs, user)
 
         recent_quotes = qs.order_by('-created_at').distinct()[:10]
         return QuoteSerializer(recent_quotes, many=True, context=self.context).data

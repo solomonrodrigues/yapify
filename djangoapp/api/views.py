@@ -9,7 +9,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.shortcuts import get_object_or_404
-from django.db.models import Q, Max, Prefetch
+from django.conf import settings
+from django.db.models import Q, Max, Count, Exists, OuterRef, Prefetch
 from djangoapp.yapify.models import User, Friendship, Quote, QuoteWitness, QuoteLike, Notification, EmailVerification, \
     QuoteGuess, RecentSearchItem, SavedQuote, HiddenQuote, PasswordReset, Report
 from .serializers import (
@@ -35,6 +36,52 @@ from .serializers import (
     ReportResponseSerializer,
 )
 from .utils import send_verification_email, normalize_email, send_password_reset_email
+
+
+def get_optimized_quote_queryset(queryset, user):
+    """Apply annotations and prefetches to avoid N+1 queries on QuoteSerializer."""
+    user_witnessed = QuoteWitness.objects.filter(quote=OuterRef('pk'), witness=user)
+    user_liked = QuoteLike.objects.filter(quote=OuterRef('pk'), user=user)
+    user_saved = SavedQuote.objects.filter(quote=OuterRef('pk'), user=user)
+    user_hidden = HiddenQuote.objects.filter(quote=OuterRef('pk'), user=user)
+    user_guessed = QuoteGuess.objects.filter(quote=OuterRef('pk'), user=user)
+
+    return queryset.annotate(
+        annotated_witness_count=Count('witnesses', distinct=True),
+        annotated_like_count=Count('likes', distinct=True),
+        annotated_is_witnessed=Exists(user_witnessed),
+        annotated_is_liked=Exists(user_liked),
+        annotated_is_saved=Exists(user_saved),
+        annotated_is_hidden=Exists(user_hidden),
+        annotated_has_guessed=Exists(user_guessed),
+    ).select_related(
+        'author', 'quoted_user'
+    ).prefetch_related(
+        'witnesses__witness',
+        Prefetch(
+            'guesses',
+            queryset=QuoteGuess.objects.filter(user=user).select_related('guessed_user'),
+            to_attr='user_guesses',
+        ),
+    )
+
+
+class OptimizedQuoteViewMixin:
+    """Mixin that caches request-level data in serializer context for QuoteSerializer."""
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        user = self.request.user
+        if user.is_authenticated:
+            now = timezone.now()
+            used = QuoteGuess.objects.filter(
+                user=user, skipped=True,
+                created_at__week=now.isocalendar().week,
+                created_at__year=now.year,
+            ).count()
+            context['remaining_skips'] = max(settings.QUOTE_GUESS_MAX_SKIPS_PER_WEEK - used, 0)
+            context['valid_friends'] = list(user.get_valid_friends())
+        return context
 
 
 class StandardResultsPagination(PageNumberPagination):
@@ -343,7 +390,7 @@ class UserDetailView(generics.RetrieveAPIView):
         return context
 
 
-class UserPostedQuotesListView(generics.ListAPIView):
+class UserPostedQuotesListView(OptimizedQuoteViewMixin, generics.ListAPIView):
     """List quotes posted by a specific user (where they are the author)"""
     serializer_class = QuoteSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -370,16 +417,17 @@ class UserPostedQuotesListView(generics.ListAPIView):
             if not is_friend:
                 raise exceptions.PermissionDenied("You can only view quotes of your friends.")
 
-        return (
+        qs = (
             Quote.objects
             .filter(author=target_user, is_active=True)
             .exclude(hidden_quote_links__user=user)
             .exclude(quoted_user__id__in=blocked_ids)
             .order_by('-created_at')
         )
+        return get_optimized_quote_queryset(qs, user)
 
 
-class UserReceivedQuotesListView(generics.ListAPIView):
+class UserReceivedQuotesListView(OptimizedQuoteViewMixin, generics.ListAPIView):
     """List quotes about a specific user (where they are the quoted_user)"""
     serializer_class = QuoteSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -406,13 +454,14 @@ class UserReceivedQuotesListView(generics.ListAPIView):
             if not is_friend:
                 raise exceptions.PermissionDenied("You can only view quotes of your friends.")
 
-        return (
+        qs = (
             Quote.objects
             .filter(quoted_user=target_user, is_active=True)
             .exclude(hidden_quote_links__user=user)
             .exclude(author__id__in=blocked_ids)
             .order_by('-created_at')
         )
+        return get_optimized_quote_queryset(qs, user)
 
 
 class FriendRequestListView(generics.ListAPIView):
@@ -622,7 +671,7 @@ class BlockedUsersListView(generics.ListAPIView):
         return self.request.user.get_blocked_users()
 
 
-class QuoteListCreateView(generics.ListCreateAPIView):
+class QuoteListCreateView(OptimizedQuoteViewMixin, generics.ListCreateAPIView):
     """List and create quotes"""
     serializer_class = QuoteSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -633,7 +682,7 @@ class QuoteListCreateView(generics.ListCreateAPIView):
         friends = user.get_friends().exclude(id__in=blocked_ids)
 
         # Get quotes from friends and public quotes, excluding blocked users
-        return (
+        qs = (
             Quote.objects
             .filter(
                 Q(author__in=friends) |
@@ -647,6 +696,7 @@ class QuoteListCreateView(generics.ListCreateAPIView):
             .exclude(quoted_user__id__in=blocked_ids)
             .distinct()
         )
+        return get_optimized_quote_queryset(qs, user)
 
     def perform_create(self, serializer):
         quote = serializer.save()
@@ -682,7 +732,7 @@ class QuoteListCreateView(generics.ListCreateAPIView):
     ],
     responses={200: QuoteSerializer(many=True)}
 )
-class QuoteSearchView(generics.ListAPIView):
+class QuoteSearchView(OptimizedQuoteViewMixin, generics.ListAPIView):
     """
     Search quotes by text, quoted user username, display name, or quoted_name.
     Supports optional filtering by year and month.
@@ -752,16 +802,15 @@ class QuoteSearchView(generics.ListAPIView):
             & ~Q(id__in=guessed_quote_ids)
         )
 
-        # Non-guessable quotes: match on any field
-        non_guessable_matches = qs.filter(~guessable_q).filter(text_q | attribution_q)
+        # Use | instead of .union() to preserve annotation support
+        combined = (
+            qs.filter(~guessable_q).filter(text_q | attribution_q)
+            | qs.filter(guessable_q).filter(text_q)
+        )
+        return get_optimized_quote_queryset(combined.distinct(), user)
 
-        # Guessable quotes: only match on text
-        guessable_matches = qs.filter(guessable_q).filter(text_q)
 
-        return non_guessable_matches.union(guessable_matches)
-
-
-class QuoteDetailView(generics.RetrieveUpdateDestroyAPIView):
+class QuoteDetailView(OptimizedQuoteViewMixin, generics.RetrieveUpdateDestroyAPIView):
     """Quote detail view"""
     serializer_class = QuoteSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -771,7 +820,7 @@ class QuoteDetailView(generics.RetrieveUpdateDestroyAPIView):
         blocked_ids = user.get_all_blocked_user_ids()
         friends = user.get_friends().exclude(id__in=blocked_ids)
 
-        return (
+        qs = (
             Quote.objects
             .filter(is_active=True)
             .filter(
@@ -784,6 +833,7 @@ class QuoteDetailView(generics.RetrieveUpdateDestroyAPIView):
             .exclude(quoted_user__id__in=blocked_ids)
             .distinct()
         )
+        return get_optimized_quote_queryset(qs, user)
 
     def perform_update(self, serializer):
         # Only allow author to update
@@ -1021,7 +1071,7 @@ class HideQuoteView(APIView):
             return Response({'detail': 'Quote was not hidden.'}, status=status.HTTP_200_OK)
 
 
-class SavedQuoteListView(generics.ListAPIView):
+class SavedQuoteListView(OptimizedQuoteViewMixin, generics.ListAPIView):
     """
     List the current user's saved quotes
     """
@@ -1033,7 +1083,7 @@ class SavedQuoteListView(generics.ListAPIView):
         user = self.request.user
         blocked_ids = user.get_all_blocked_user_ids()
 
-        return (
+        qs = (
             Quote.objects
             .filter(
                 saved_quote_links__user=user,
@@ -1044,9 +1094,10 @@ class SavedQuoteListView(generics.ListAPIView):
             .order_by('-saved_quote_links__created_at')
             .distinct()
         )
+        return get_optimized_quote_queryset(qs, user)
 
 
-class HiddenQuoteListView(generics.ListAPIView):
+class HiddenQuoteListView(OptimizedQuoteViewMixin, generics.ListAPIView):
     """
     List the current user's hidden quotes
     """
@@ -1058,7 +1109,7 @@ class HiddenQuoteListView(generics.ListAPIView):
         user = self.request.user
         blocked_ids = user.get_all_blocked_user_ids()
 
-        return (
+        qs = (
             Quote.objects
             .filter(
                 hidden_quote_links__user=user,
@@ -1069,9 +1120,10 @@ class HiddenQuoteListView(generics.ListAPIView):
             .order_by('-hidden_quote_links__created_at')
             .distinct()
         )
+        return get_optimized_quote_queryset(qs, user)
 
 
-class GuessableQuotesListView(generics.ListAPIView):
+class GuessableQuotesListView(OptimizedQuoteViewMixin, generics.ListAPIView):
     """
     List quotes the current user can guess on (and hasn't yet).
     """
@@ -1088,7 +1140,7 @@ class GuessableQuotesListView(generics.ListAPIView):
             user=user
         ).values_list('quote_id', flat=True)
 
-        return (
+        qs = (
             Quote.objects
             .filter(
                 is_active=True,
@@ -1103,9 +1155,10 @@ class GuessableQuotesListView(generics.ListAPIView):
             .order_by('-created_at')
             .distinct()
         )
+        return get_optimized_quote_queryset(qs, user)
 
 
-class RespondableQuotesListView(generics.ListAPIView):
+class RespondableQuotesListView(OptimizedQuoteViewMixin, generics.ListAPIView):
     """
     List quotes the current user can respond to (confirm/deny) and hasn't yet.
     """
@@ -1117,7 +1170,7 @@ class RespondableQuotesListView(generics.ListAPIView):
         user = self.request.user
         blocked_ids = user.get_all_blocked_user_ids()
 
-        return (
+        qs = (
             Quote.objects
             .filter(
                 is_active=True,
@@ -1128,6 +1181,7 @@ class RespondableQuotesListView(generics.ListAPIView):
             .exclude(author__id__in=blocked_ids)  # Not from blocked users
             .order_by('-created_at')
         )
+        return get_optimized_quote_queryset(qs, user)
 
 
 class NotificationListView(generics.ListAPIView):
