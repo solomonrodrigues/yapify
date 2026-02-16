@@ -733,6 +733,7 @@ class QuoteListCreateView(OptimizedQuoteViewMixin, generics.ListCreateAPIView):
             .exclude(author__id__in=blocked_ids)
             .exclude(quoted_user__id__in=blocked_ids)
             .distinct()
+            .order_by("-created_at")
         )
         return get_optimized_quote_queryset(qs, user)
 
