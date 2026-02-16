@@ -23,6 +23,7 @@ from .serializers import (
     NotificationSerializer,
     CustomTokenObtainPairSerializer,
     PublicUserSerializer,
+    PublicUserListSerializer,
     ResendVerificationSerializer,
     VerifyEmailSerializer,
     QuoteGuessSerializer,
@@ -84,9 +85,9 @@ class OptimizedQuoteViewMixin:
         return context
 
 
-def get_optimized_user_queryset(queryset):
-    """Annotate User querysets with counts to eliminate per-user N+1 queries in PublicUserSerializer."""
-    return queryset.annotate(
+def get_optimized_user_queryset(queryset, current_user=None):
+    """Annotate User querysets with counts and prefetch friendships to eliminate N+1 queries."""
+    qs = queryset.annotate(
         annotated_friends_count=(
             Count('sent_friendships', filter=Q(sent_friendships__status='accepted'), distinct=True)
             + Count('received_friendships', filter=Q(received_friendships__status='accepted'), distinct=True)
@@ -98,6 +99,20 @@ def get_optimized_user_queryset(queryset):
             'quotes_about_me', filter=Q(quotes_about_me__is_active=True), distinct=True,
         ),
     )
+    if current_user is not None:
+        qs = qs.prefetch_related(
+            Prefetch(
+                'sent_friendships',
+                queryset=Friendship.objects.filter(receiver=current_user),
+                to_attr='_friendship_with_me_sent',
+            ),
+            Prefetch(
+                'received_friendships',
+                queryset=Friendship.objects.filter(sender=current_user),
+                to_attr='_friendship_with_me_received',
+            ),
+        )
+    return qs
 
 
 class StandardResultsPagination(PageNumberPagination):
@@ -268,7 +283,7 @@ class ProfileView(generics.RetrieveUpdateAPIView):
 
 class UserSearchView(generics.ListAPIView):
     """Search users by username or display name"""
-    serializer_class = PublicUserSerializer
+    serializer_class = PublicUserListSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = StandardResultsPagination
     filter_backends = [filters.SearchFilter]
@@ -278,12 +293,12 @@ class UserSearchView(generics.ListAPIView):
         user = self.request.user
         blocked_ids = user.get_all_blocked_user_ids()
         qs = User.objects.exclude(id=user.id).exclude(id__in=blocked_ids)
-        return get_optimized_user_queryset(qs)
+        return get_optimized_user_queryset(qs, current_user=user)
 
 
 class FriendListView(generics.ListAPIView):
     """List and search user's friends"""
-    serializer_class = PublicUserSerializer
+    serializer_class = PublicUserListSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = StandardResultsPagination
     filter_backends = [filters.SearchFilter]
@@ -302,12 +317,12 @@ class FriendListView(generics.ListAPIView):
                 Q(display_name__icontains=search_query)
             )
 
-        return get_optimized_user_queryset(friends_queryset)
+        return get_optimized_user_queryset(friends_queryset, current_user=user)
 
 
 class RecentQuotedFriendsView(generics.ListAPIView):
     """List up to 5 most recent friends that the user has made quotes for"""
-    serializer_class = PublicUserSerializer
+    serializer_class = PublicUserListSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
@@ -318,21 +333,24 @@ class RecentQuotedFriendsView(generics.ListAPIView):
         user_friends = user.get_friends().exclude(id__in=blocked_ids)
 
         # Get friends that have been quoted by this user, ordered by most recent quote
-        quoted_friends = user_friends.filter(
-            quotes_about_me__author=user,
-            quotes_about_me__is_active=True
-        ).annotate(
-            latest_quote_date=Max('quotes_about_me__created_at')
-        ).order_by('-latest_quote_date')[:5]
+        quoted_friends = get_optimized_user_queryset(
+            user_friends.filter(
+                quotes_about_me__author=user,
+                quotes_about_me__is_active=True
+            ).annotate(
+                latest_quote_date=Max('quotes_about_me__created_at')
+            ).order_by('-latest_quote_date'),
+            current_user=user,
+        )[:5]
 
-        return get_optimized_user_queryset(quoted_friends)
+        return quoted_friends
 
 
 class UserFriendsListView(generics.ListAPIView):
     """
     Get a paginated list of another user's friends.
     """
-    serializer_class = PublicUserSerializer
+    serializer_class = PublicUserListSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = StandardResultsPagination
     filter_backends = [filters.SearchFilter]
@@ -366,7 +384,7 @@ class UserFriendsListView(generics.ListAPIView):
                 Q(display_name__icontains=search_query)
             )
 
-        return get_optimized_user_queryset(friends_queryset)
+        return get_optimized_user_queryset(friends_queryset, current_user=self.request.user)
 
 
 class UserDetailView(generics.RetrieveAPIView):
@@ -393,7 +411,8 @@ class UserDetailView(generics.RetrieveAPIView):
                         'quotes_about_me',
                         queryset=Quote.objects.filter(is_active=True)
                     )
-                )
+                ),
+                current_user=self.request.user,
             ).get(id=user_id)
 
             return user
@@ -681,12 +700,13 @@ class BlockUserView(APIView):
 
 class BlockedUsersListView(generics.ListAPIView):
     """List users blocked by the current user."""
-    serializer_class = PublicUserSerializer
+    serializer_class = PublicUserListSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = StandardResultsPagination
 
     def get_queryset(self):
-        return get_optimized_user_queryset(self.request.user.get_blocked_users())
+        user = self.request.user
+        return get_optimized_user_queryset(user.get_blocked_users(), current_user=user)
 
 
 class QuoteListCreateView(OptimizedQuoteViewMixin, generics.ListCreateAPIView):
@@ -933,7 +953,7 @@ class LikeQuoteView(APIView):
 
 class QuoteLikesListView(generics.ListAPIView):
     """List users who liked a specific quote"""
-    serializer_class = PublicUserSerializer
+    serializer_class = PublicUserListSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = StandardResultsPagination
 
@@ -945,12 +965,12 @@ class QuoteLikesListView(generics.ListAPIView):
         qs = User.objects.filter(
             liked_quotes__quote=quote
         ).exclude(id__in=blocked_ids).order_by('-liked_quotes__created_at')
-        return get_optimized_user_queryset(qs)
+        return get_optimized_user_queryset(qs, current_user=self.request.user)
 
 
 class QuoteWitnessesListView(generics.ListAPIView):
     """List users who witnessed a specific quote"""
-    serializer_class = PublicUserSerializer
+    serializer_class = PublicUserListSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = StandardResultsPagination
 
@@ -962,7 +982,7 @@ class QuoteWitnessesListView(generics.ListAPIView):
         qs = User.objects.filter(
             witnessed_quotes__quote=quote
         ).exclude(id__in=blocked_ids).order_by('-witnessed_quotes__created_at')
-        return get_optimized_user_queryset(qs)
+        return get_optimized_user_queryset(qs, current_user=self.request.user)
 
 
 class RespondToQuoteView(APIView):

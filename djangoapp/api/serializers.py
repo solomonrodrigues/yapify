@@ -466,7 +466,6 @@ class PublicUserSerializer(serializers.ModelSerializer):
 
     # Relationship info with current user
     friendship = serializers.SerializerMethodField()
-    quotes_i_made_about_user = serializers.SerializerMethodField()
 
     # Join date
     date_joined = serializers.DateTimeField(read_only=True)
@@ -477,7 +476,7 @@ class PublicUserSerializer(serializers.ModelSerializer):
             'id', 'username', 'display_name', 'profile_color', 'date_joined',
             'friends_count', 'quotes_posted', 'quotes_received',
             'current_streak', 'longest_streak',
-            'recent_quotes_posted', 'friendship', 'quotes_i_made_about_user'
+            'recent_quotes_posted', 'friendship',
         ]
 
     def get_current_user(self):
@@ -542,6 +541,16 @@ class PublicUserSerializer(serializers.ModelSerializer):
         if current_user == obj:
             return None  # Don't return friendship with yourself
 
+        # Use prefetched data if available (from get_optimized_user_queryset)
+        sent = getattr(obj, '_friendship_with_me_sent', None)
+        received = getattr(obj, '_friendship_with_me_received', None)
+        if sent is not None and received is not None:
+            matches = list(sent) + list(received)
+            if matches:
+                return FriendshipSerializer(matches[0]).data
+            return None
+
+        # Fallback to query
         friendship = Friendship.objects.filter(
             Q(sender=current_user, receiver=obj) |
             Q(sender=obj, receiver=current_user)
@@ -551,21 +560,12 @@ class PublicUserSerializer(serializers.ModelSerializer):
             return FriendshipSerializer(friendship).data
         return None
 
-    @extend_schema_field(QuoteSerializer(many=True))
-    def get_quotes_i_made_about_user(self, obj):
-        """Quotes the current user has made about this user (limit 10)"""
-        from djangoapp.api.views import get_optimized_quote_queryset
 
-        current_user = self.get_current_user()
-        if current_user == obj:
-            return []  # Don't show quotes about yourself when viewing own profile
+class PublicUserListSerializer(PublicUserSerializer):
+    """Lighter serializer for user list views — excludes expensive nested quotes."""
 
-        qs = obj.quotes_about_me.filter(
-            author=current_user,
-            is_active=True
-        ).order_by('-created_at')
-        qs = get_optimized_quote_queryset(qs, current_user)[:10]
-        return QuoteSerializer(qs, many=True, context=self.context).data
+    class Meta(PublicUserSerializer.Meta):
+        fields = [f for f in PublicUserSerializer.Meta.fields if f != 'recent_quotes_posted']
 
 
 class NotificationSerializer(serializers.ModelSerializer):
