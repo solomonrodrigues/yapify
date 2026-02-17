@@ -3,6 +3,7 @@ from django.db import transaction
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse
 from rest_framework import generics, status, permissions, exceptions, filters
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.exceptions import NotFound
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
@@ -127,6 +128,8 @@ class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserRegistrationSerializer
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'auth'
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -143,6 +146,8 @@ class RegisterView(generics.CreateAPIView):
 
 class VerifyEmailView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'auth'
 
     def post(self, request):
         s = VerifyEmailSerializer(data=request.data)
@@ -177,6 +182,8 @@ class VerifyEmailView(APIView):
 
 class ResendVerificationView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'auth'
 
     def post(self, request):
         s = ResendVerificationSerializer(data=request.data)
@@ -206,6 +213,8 @@ class ResendVerificationView(APIView):
 )
 class PasswordResetRequestView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'auth'
 
     def post(self, request):
         s = PasswordResetRequestSerializer(data=request.data)
@@ -235,6 +244,8 @@ class PasswordResetRequestView(APIView):
 )
 class PasswordResetConfirmView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'auth'
 
     def post(self, request):
         s = PasswordResetConfirmSerializer(data=request.data)
@@ -270,6 +281,8 @@ class PasswordResetConfirmView(APIView):
 class CustomTokenObtainPairView(TokenObtainPairView):
     """Custom JWT login endpoint"""
     serializer_class = CustomTokenObtainPairSerializer
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'auth'
 
 
 class ProfileView(generics.RetrieveUpdateAPIView):
