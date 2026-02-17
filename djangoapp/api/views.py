@@ -1225,6 +1225,70 @@ class RespondableQuotesListView(OptimizedQuoteViewMixin, generics.ListAPIView):
         return get_optimized_quote_queryset(qs, user)
 
 
+class QuoteAssignUserView(APIView):
+    """
+    Allow the author of a quote to replace a quoted_name with a quoted_user.
+    The quoted_user must be a friend of the author.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request, quote_id):
+        quote = get_object_or_404(Quote, id=quote_id, is_active=True)
+
+        # Only the author can assign a user
+        if quote.author != request.user:
+            raise exceptions.PermissionDenied("Only the author can assign a user to this quote.")
+
+        # Quote must currently have a quoted_name (not already assigned to a user)
+        if quote.quoted_user is not None:
+            return Response(
+                {'detail': 'This quote already has a quoted user.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user_id = request.data.get('quoted_user_id')
+        if not user_id:
+            return Response(
+                {'detail': 'quoted_user_id is required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        target_user = get_object_or_404(User, id=user_id, is_active=True)
+
+        # Must be friends
+        friendship_exists = Friendship.objects.filter(
+            Q(sender=request.user, receiver=target_user, status='accepted') |
+            Q(sender=target_user, receiver=request.user, status='accepted')
+        ).exists()
+        if not friendship_exists:
+            return Response(
+                {'detail': 'You can only assign a friend as the quoted user.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Perform the swap
+        quote.quoted_user = target_user
+        quote.quoted_name = None
+        quote.save(update_fields=['quoted_user', 'quoted_name', 'updated_at'])
+
+        # Notify the quoted user
+        if target_user != request.user:
+            Notification.objects.create(
+                recipient=target_user,
+                sender=request.user,
+                notification_type='new_quote',
+                title='New Quote About You',
+                message=f'{request.user.get_full_name()} posted a quote about you',
+                quote=quote,
+            )
+
+        return Response(
+            QuoteSerializer(quote, context={'request': request}).data,
+            status=status.HTTP_200_OK,
+        )
+
+
 class NotificationListView(generics.ListAPIView):
     """List user notifications"""
     serializer_class = NotificationSerializer

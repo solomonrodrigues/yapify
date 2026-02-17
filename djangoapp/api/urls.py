@@ -57,6 +57,7 @@ urlpatterns = [
     path('quotes/<int:quote_id>/witness/', views.WitnessQuoteView.as_view(), name='witness_quote'),
     path('quotes/<int:quote_id>/like/', views.LikeQuoteView.as_view(), name='like_quote'),
     path('quotes/<int:quote_id>/respond/', views.RespondToQuoteView.as_view(), name='quote-respond'),
+    path('quotes/<int:quote_id>/assign-user/', views.QuoteAssignUserView.as_view(), name='quote-assign-user'),
     path('quotes/<int:quote_id>/likes/', views.QuoteLikesListView.as_view(), name='quote-likes-list'),
     path('quotes/<int:quote_id>/witnesses/', views.QuoteWitnessesListView.as_view(), name='quote-witnesses-list'),
     path("quotes/search/", views.QuoteSearchView.as_view(), name="quote_search"),
