@@ -505,6 +505,7 @@ class FriendRequestListView(generics.ListAPIView):
     """List pending friend requests"""
     serializer_class = FriendshipSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardResultsPagination
 
     def get_queryset(self):
         return self.request.user.get_pending_friend_requests()
@@ -713,6 +714,7 @@ class QuoteListCreateView(OptimizedQuoteViewMixin, generics.ListCreateAPIView):
     """List and create quotes"""
     serializer_class = QuoteSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardResultsPagination
 
     def get_queryset(self):
         user = self.request.user
@@ -1293,6 +1295,7 @@ class NotificationListView(generics.ListAPIView):
     """List user notifications"""
     serializer_class = NotificationSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardResultsPagination
 
     def get_queryset(self):
         user = self.request.user
