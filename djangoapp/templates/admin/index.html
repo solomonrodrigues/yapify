@@ -1,0 +1,65 @@
+{% extends 'admin/base.html' %}
+{% load i18n unfold %}
+
+{% block title %}Dashboard | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+
+    {# KPI Cards #}
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {% component "unfold/components/card.html" with title="Total Users" icon="people" %}
+            {% component "unfold/components/text.html" with class="text-2xl font-semibold" %}
+                {{ kpi.total_users }}
+            {% endcomponent %}
+            {% component "unfold/components/text.html" with class="text-sm text-gray-500" %}
+                +{{ kpi.new_users_this_month }} this month
+            {% endcomponent %}
+        {% endcomponent %}
+
+        {% component "unfold/components/card.html" with title="Monthly Active Users" icon="trending_up" %}
+            {% component "unfold/components/text.html" with class="text-2xl font-semibold" %}
+                {{ kpi.monthly_active_users }}
+            {% endcomponent %}
+            {% component "unfold/components/text.html" with class="text-sm text-gray-500" %}
+                Last 30 days
+            {% endcomponent %}
+        {% endcomponent %}
+
+        {% component "unfold/components/card.html" with title="Total Quotes" icon="format_quote" %}
+            {% component "unfold/components/text.html" with class="text-2xl font-semibold" %}
+                {{ kpi.total_quotes }}
+            {% endcomponent %}
+            {% component "unfold/components/text.html" with class="text-sm text-gray-500" %}
+                +{{ kpi.quotes_this_month }} this month
+            {% endcomponent %}
+        {% endcomponent %}
+
+        {% component "unfold/components/card.html" with title="Active Friendships" icon="group" %}
+            {% component "unfold/components/text.html" with class="text-2xl font-semibold" %}
+                {{ kpi.active_friendships }}
+            {% endcomponent %}
+        {% endcomponent %}
+    </div>
+
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {% component "unfold/components/card.html" with title="Total Likes" icon="favorite" %}
+            {% component "unfold/components/text.html" with class="text-2xl font-semibold" %}
+                {{ kpi.total_likes }}
+            {% endcomponent %}
+        {% endcomponent %}
+
+        {% component "unfold/components/card.html" with title="Reports (30d)" icon="flag" %}
+            {% component "unfold/components/text.html" with class="text-2xl font-semibold" %}
+                {{ kpi.recent_reports }}
+            {% endcomponent %}
+        {% endcomponent %}
+    </div>
+
+    {# Trends Chart #}
+    {% component "unfold/components/card.html" with title="6-Month Trends" icon="bar_chart" %}
+        {% component "unfold/components/chart/bar.html" with data=chart_data height=300 %}{% endcomponent %}
+    {% endcomponent %}
+
+</div>
+{% endblock %}

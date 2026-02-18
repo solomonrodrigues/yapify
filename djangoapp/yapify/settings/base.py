@@ -9,6 +9,8 @@ SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "unsafe-secret-key-for-dev")
 DEBUG = False
 
 INSTALLED_APPS = [  # Django apps
+    'unfold',
+    'unfold.contrib.filters',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -47,7 +49,7 @@ ROOT_URLCONF = 'djangoapp.yapify.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -166,3 +168,46 @@ SPECTACULAR_SETTINGS = {
 }
 
 QUOTE_GUESS_MAX_SKIPS_PER_WEEK = 3
+
+# Django Unfold admin theme
+UNFOLD = {
+    "SITE_TITLE": "Yapify Admin",
+    "SITE_HEADER": "Yapify",
+    "DASHBOARD_CALLBACK": "djangoapp.yapify.dashboard.dashboard_callback",
+    "SIDEBAR": {
+        "navigation": [
+            {
+                "title": "Users & Auth",
+                "items": [
+                    {"title": "Users", "link": "/admin/yapify/user/", "icon": "person"},
+                    {"title": "Email Verifications", "link": "/admin/yapify/emailverification/", "icon": "mark_email_read"},
+                ],
+            },
+            {
+                "title": "Content",
+                "items": [
+                    {"title": "Quotes", "link": "/admin/yapify/quote/", "icon": "format_quote"},
+                    {"title": "Quote Witnesses", "link": "/admin/yapify/quotewitness/", "icon": "visibility"},
+                    {"title": "Quote Likes", "link": "/admin/yapify/quotelike/", "icon": "favorite"},
+                    {"title": "Quote Guesses", "link": "/admin/yapify/quoteguess/", "icon": "quiz"},
+                    {"title": "Saved Quotes", "link": "/admin/yapify/savedquote/", "icon": "bookmark"},
+                    {"title": "Hidden Quotes", "link": "/admin/yapify/hiddenquote/", "icon": "visibility_off"},
+                ],
+            },
+            {
+                "title": "Social",
+                "items": [
+                    {"title": "Friendships", "link": "/admin/yapify/friendship/", "icon": "group"},
+                    {"title": "Notifications", "link": "/admin/yapify/notification/", "icon": "notifications"},
+                    {"title": "Recent Searches", "link": "/admin/yapify/recentsearchitem/", "icon": "search"},
+                ],
+            },
+            {
+                "title": "Moderation",
+                "items": [
+                    {"title": "Reports", "link": "/admin/yapify/report/", "icon": "flag"},
+                ],
+            },
+        ],
+    },
+}

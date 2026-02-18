@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib import messages
 from django.utils.translation import gettext_lazy as _
+from unfold.admin import ModelAdmin as UnfoldModelAdmin
 from .models import (
     User, Friendship, Quote, QuoteWitness, QuoteLike, Notification, EmailVerification, QuoteGuess,
     SavedQuote, HiddenQuote, RecentSearchItem, Report,
@@ -9,7 +10,7 @@ from .models import (
 
 
 @admin.register(User)
-class UserAdmin(BaseUserAdmin):
+class UserAdmin(BaseUserAdmin, UnfoldModelAdmin):
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
         (_('Personal info'), {'fields': ('username', 'display_name', 'bio')}),
@@ -70,7 +71,7 @@ class UserAdmin(BaseUserAdmin):
 
 
 @admin.register(EmailVerification)
-class EmailVerificationAdmin(admin.ModelAdmin):
+class EmailVerificationAdmin(UnfoldModelAdmin):
     list_display = (
         "id",
         "user",
@@ -95,7 +96,7 @@ class EmailVerificationAdmin(admin.ModelAdmin):
 
 
 @admin.register(Friendship)
-class FriendshipAdmin(admin.ModelAdmin):
+class FriendshipAdmin(UnfoldModelAdmin):
     list_display = ('id', 'sender', 'receiver', 'status', 'created_at')
     list_filter = ('status', 'created_at')
     search_fields = ('sender__email', 'sender__username', 'receiver__email', 'receiver__username')
@@ -117,7 +118,7 @@ class FriendshipAdmin(admin.ModelAdmin):
 
 
 @admin.register(Quote)
-class QuoteAdmin(admin.ModelAdmin):
+class QuoteAdmin(UnfoldModelAdmin):
     list_display = ('id', '__str__', 'author', 'quoted_user', 'is_active', 'like_count', 'witness_count', 'created_at')
     list_filter = ('is_active', 'created_at')
     search_fields = ('text', 'author__email', 'author__username', 'quoted_user__email', 'quoted_user__username')
@@ -157,7 +158,7 @@ class QuoteAdmin(admin.ModelAdmin):
 
 
 @admin.register(QuoteWitness)
-class QuoteWitnessAdmin(admin.ModelAdmin):
+class QuoteWitnessAdmin(UnfoldModelAdmin):
     list_display = ('witness', 'quote', 'created_at')
     list_filter = ('created_at',)
     search_fields = ('witness__email', 'witness__username', 'quote__text')
@@ -168,7 +169,7 @@ class QuoteWitnessAdmin(admin.ModelAdmin):
 
 
 @admin.register(QuoteLike)
-class QuoteLikeAdmin(admin.ModelAdmin):
+class QuoteLikeAdmin(UnfoldModelAdmin):
     list_display = ('user', 'quote', 'created_at')
     search_fields = ('user__email', 'user__username', 'quote__text')
     autocomplete_fields = ('user', 'quote')
@@ -178,7 +179,7 @@ class QuoteLikeAdmin(admin.ModelAdmin):
 
 
 @admin.register(Notification)
-class NotificationAdmin(admin.ModelAdmin):
+class NotificationAdmin(UnfoldModelAdmin):
     list_display = ('notification_type', 'recipient', 'sender', 'is_read', 'created_at')
     list_filter = ('notification_type', 'is_read', 'created_at')
     search_fields = ('recipient__email', 'recipient__username', 'sender__email', 'sender__username', 'title')
@@ -202,7 +203,7 @@ class NotificationAdmin(admin.ModelAdmin):
 
 
 @admin.register(QuoteGuess)
-class QuoteGuessAdmin(admin.ModelAdmin):
+class QuoteGuessAdmin(UnfoldModelAdmin):
     list_display = (
         "id",
         "user",
@@ -233,7 +234,7 @@ class QuoteGuessAdmin(admin.ModelAdmin):
 
 
 @admin.register(SavedQuote)
-class SavedQuoteAdmin(admin.ModelAdmin):
+class SavedQuoteAdmin(UnfoldModelAdmin):
     list_display = (
         "id",
         "user",
@@ -255,7 +256,7 @@ class SavedQuoteAdmin(admin.ModelAdmin):
 
 
 @admin.register(HiddenQuote)
-class HiddenQuoteAdmin(admin.ModelAdmin):
+class HiddenQuoteAdmin(UnfoldModelAdmin):
     list_display = (
         "id",
         "user",
@@ -277,7 +278,7 @@ class HiddenQuoteAdmin(admin.ModelAdmin):
 
 
 @admin.register(RecentSearchItem)
-class RecentSearchItemAdmin(admin.ModelAdmin):
+class RecentSearchItemAdmin(UnfoldModelAdmin):
     list_display = (
         "id",
         "owner",
@@ -312,7 +313,7 @@ class RecentSearchItemAdmin(admin.ModelAdmin):
 
 
 @admin.register(Report)
-class ReportAdmin(admin.ModelAdmin):
+class ReportAdmin(UnfoldModelAdmin):
     list_display = (
         "id",
         "reporter",
