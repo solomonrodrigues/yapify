@@ -168,6 +168,7 @@ SPECTACULAR_SETTINGS = {
 }
 
 QUOTE_GUESS_MAX_SKIPS_PER_WEEK = 3
+QUOTE_EDIT_WINDOW = timedelta(minutes=15)
 
 # Django Unfold admin theme
 UNFOLD = {

@@ -890,9 +890,13 @@ class QuoteDetailView(OptimizedQuoteViewMixin, generics.RetrieveUpdateDestroyAPI
         return get_optimized_quote_queryset(qs, user)
 
     def perform_update(self, serializer):
-        # Only allow author to update
-        if self.get_object().author != self.request.user:
+        from django.conf import settings
+        from django.utils import timezone
+        quote = self.get_object()
+        if quote.author != self.request.user:
             raise exceptions.PermissionDenied("You can only edit your own quotes")
+        if timezone.now() - quote.created_at > settings.QUOTE_EDIT_WINDOW:
+            raise exceptions.PermissionDenied("Quotes can no longer be edited after 15 minutes")
         serializer.save()
 
     def perform_destroy(self, instance):
