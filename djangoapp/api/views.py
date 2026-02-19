@@ -1352,9 +1352,7 @@ class MarkAllNotificationsReadView(APIView):
             recipient=self.request.user,
             is_read=False,
         )
-        count = qs.count()
-        for n in qs:
-            n.mark_as_read()
+        count = qs.update(is_read=True)
         return Response(
             {
                 'message': 'All notifications marked as read',
