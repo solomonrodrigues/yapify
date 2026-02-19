@@ -4,7 +4,7 @@ from django.utils import timezone
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse
 from rest_framework import generics, status, permissions, exceptions, filters
 from rest_framework.throttling import ScopedRateThrottle
-from rest_framework.exceptions import NotFound
+from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -823,11 +823,17 @@ class QuoteSearchView(OptimizedQuoteViewMixin, generics.ListAPIView):
         month = self.request.query_params.get('month')
 
         if year:
-            year = int(year)
+            try:
+                year = int(year)
+            except ValueError:
+                raise ValidationError({'year': 'Must be a valid integer.'})
             qs = qs.filter(created_at__year=year)
 
         if month:
-            month = int(month)
+            try:
+                month = int(month)
+            except ValueError:
+                raise ValidationError({'month': 'Must be a valid integer.'})
             qs = qs.filter(created_at__month=month)
 
         search = self.request.query_params.get('search', '').strip()
