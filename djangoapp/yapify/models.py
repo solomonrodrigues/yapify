@@ -5,7 +5,7 @@ from django.conf import settings
 from django.contrib.auth.hashers import make_password, check_password
 from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -505,6 +505,7 @@ class QuoteGuess(models.Model):
         ordering = ["-created_at"]
         verbose_name_plural = "Quote guesses"
 
+    @transaction.atomic
     def save(self, *args, **kwargs):
         if self.skipped:
             self.guessed_user = None
@@ -518,10 +519,15 @@ class QuoteGuess(models.Model):
 
         # Handle streak
         creating = self._state.adding  # only adjust streak on first save
+
+        # Lock the user row before saving the guess so that concurrent requests
+        # cannot interleave their streak reads/writes.
+        if creating:
+            user = User.objects.select_for_update().get(pk=self.user_id)
+
         super().save(*args, **kwargs)
 
         if creating:
-            user = self.user
             if self.skipped:
                 pass  # skip does not break streak, just no increment
             elif self.correct:
