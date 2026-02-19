@@ -250,28 +250,31 @@ class PasswordResetConfirmView(APIView):
     def post(self, request):
         s = PasswordResetConfirmSerializer(data=request.data)
         s.is_valid(raise_exception=True)
+        email = normalize_email(s.validated_data['email'])
         code = s.validated_data['code']
         new_password = s.validated_data['new_password']
 
-        # Find valid unused reset that matches the code
-        valid_resets = PasswordReset.objects.filter(
+        # Resolve user first so we check only their most recent reset,
+        # avoiding cross-user iteration and brute-force enumeration.
+        try:
+            user = User.objects.get(email__iexact=email)
+        except User.DoesNotExist:
+            return Response({"detail": "Invalid or expired code."}, status=status.HTTP_400_BAD_REQUEST)
+
+        reset = PasswordReset.objects.filter(
+            user=user,
             used_at__isnull=True,
             expires_at__gte=timezone.now()
-        ).select_related('user').order_by('-created_at')
+        ).order_by('-created_at').first()
 
-        matched_reset = None
-        for reset in valid_resets:
-            if reset.matches(code):
-                matched_reset = reset
-                break
-
-        if not matched_reset:
+        if not reset or not reset.matches(code):
             return Response({"detail": "Invalid or expired code."}, status=status.HTTP_400_BAD_REQUEST)
+
+        matched_reset = reset
 
         matched_reset.used_at = timezone.now()
         matched_reset.save(update_fields=['used_at'])
 
-        user = matched_reset.user
         user.set_password(new_password)
         user.save(update_fields=['password'])
 
