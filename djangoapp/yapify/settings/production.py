@@ -3,12 +3,15 @@ from .base import *
 
 DEBUG = False  # SECURITY WARNING: don't run with debug turned on in production!
 
+# Fail loudly if the secret key is not set in the environment.
+SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
+
 if not DEBUG:
     import sentry_sdk
     sentry_sdk.init(
-        dsn="https://ffbdad07e6079794aba69ae53083fd0e@o4506320558555136.ingest.us.sentry.io/4509797418336256",
         # Add data like request headers and IP for users,
         # see https://docs.sentry.io/platforms/python/data-management/data-collected/ for more info
+        dsn=os.environ["SENTRY_DSN"],
         send_default_pii=True,
     )
 
