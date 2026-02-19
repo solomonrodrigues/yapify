@@ -1513,6 +1513,25 @@ class RecentSearchView(APIView):
         target = ser.validated_data["_target"]
         query = ser.validated_data.get("query")
         now = timezone.now()
+        user = request.user
+
+        # Enforce visibility: users can only record searches for targets they
+        # can actually see, preventing search-history pollution via ID guessing.
+        if isinstance(target, User):
+            if target.pk != user.pk and not user.get_friends().filter(pk=target.pk).exists():
+                return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        else:  # Quote
+            blocked_ids = user.get_all_blocked_user_ids()
+            friends = user.get_friends().exclude(id__in=blocked_ids)
+            is_visible = Quote.objects.filter(
+                pk=target.pk,
+                is_active=True,
+            ).filter(
+                Q(author__in=friends) | Q(quoted_user__in=friends) |
+                Q(author=user) | Q(quoted_user=user)
+            ).exclude(author__id__in=blocked_ids).exclude(quoted_user__id__in=blocked_ids).exists()
+            if not is_visible:
+                return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
         if isinstance(target, User):
             rec, created = RecentSearchItem.objects.select_for_update().get_or_create(
