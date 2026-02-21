@@ -79,4 +79,7 @@ urlpatterns = [
     path('notifications/<int:notification_id>/read/', views.MarkNotificationReadView.as_view(), name='mark_notification_read'),
     path('notifications/<int:notification_id>/unread/', views.MarkNotificationUnreadView.as_view(), name='mark_notification_unread'),
     path('notifications/<int:notification_id>/', views.DeleteNotificationView.as_view(), name='delete_notification'),
+
+    # Devices
+    path('devices/', views.DeviceTokenView.as_view(), name='device-tokens'),
 ]

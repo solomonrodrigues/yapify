@@ -12,8 +12,10 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from django.shortcuts import get_object_or_404
 from django.conf import settings
 from django.db.models import Q, Max, Count, Exists, OuterRef, Prefetch
-from djangoapp.yapify.models import User, Friendship, Quote, QuoteWitness, QuoteLike, Notification, EmailVerification, \
+from djangoapp.yapify.models import User, Friendship, Quote, QuoteWitness, QuoteLike, EmailVerification, \
     QuoteGuess, RecentSearchItem, SavedQuote, HiddenQuote, PasswordReset, Report
+from djangoapp.notifications.models import Notification, Event, DeviceToken
+from djangoapp.notifications.notification_service import emit_event
 from .serializers import (
     UserRegistrationSerializer,
     UserSerializer,
@@ -538,15 +540,7 @@ class SendFriendRequestView(generics.CreateAPIView):
         if serializer.is_valid():
             friendship = serializer.save()
 
-            # Create notification
-            Notification.objects.create(
-                recipient=friendship.receiver,
-                sender=friendship.sender,
-                notification_type='friend_request',
-                title='New Friend Request',
-                message=f'{friendship.sender.get_full_name()} sent you a friend request',
-                friendship=friendship
-            )
+            emit_event('friend_request', actor=friendship.sender, recipient=friendship.receiver, friendship=friendship)
 
             return Response({
                 'message': 'Friend request sent successfully',
@@ -573,13 +567,15 @@ class CancelFriendRequestView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        # Clean up any related "friend_request" notifications
-        Notification.objects.filter(
+        # Delete any pending unprocessed events for this friendship so the worker
+        # doesn't create a notification after the friendship is gone.
+        Event.objects.filter(
             friendship=friendship,
-            notification_type='friend_request'
+            event_type='friend_request',
+            processed_at__isnull=True,
         ).delete()
 
-        friendship.delete()
+        friendship.delete()  # CASCADE removes the Notification group record
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -600,13 +596,7 @@ class UnfriendView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        # Clean up any related "friend_accepted" notifications
-        Notification.objects.filter(
-            friendship=friendship,
-            notification_type='friend_accepted'
-        ).delete()
-
-        friendship.delete()
+        friendship.delete()  # CASCADE removes any Notification group records for this friendship
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -622,15 +612,7 @@ class RespondToFriendRequestView(APIView):
         if action == 'accept':
             friendship.accept()
 
-            # Create notification
-            Notification.objects.create(
-                recipient=friendship.sender,
-                sender=friendship.receiver,
-                notification_type='friend_accepted',
-                title='Friend Request Accepted',
-                message=f'{friendship.receiver.get_full_name()} accepted your friend request',
-                friendship=friendship
-            )
+            emit_event('friend_accepted', actor=friendship.receiver, recipient=friendship.sender, friendship=friendship)
 
             return Response({
                 'message': 'Friend request accepted',
@@ -686,10 +668,12 @@ class BlockUserView(APIView):
             status='blocked'
         )
 
-        # Clean up notifications between these users
-        Notification.objects.filter(
-            Q(recipient=request.user, sender=target_user) |
-            Q(recipient=target_user, sender=request.user)
+        # Delete pending unprocessed events between these users so the worker
+        # doesn't produce notifications across a block.
+        Event.objects.filter(
+            Q(actor=request.user, recipient=target_user) |
+            Q(actor=target_user, recipient=request.user),
+            processed_at__isnull=True,
         ).delete()
 
         return Response({'detail': 'User blocked.'}, status=status.HTTP_201_CREATED)
@@ -758,16 +742,8 @@ class QuoteListCreateView(OptimizedQuoteViewMixin, generics.ListCreateAPIView):
     def perform_create(self, serializer):
         quote = serializer.save()
 
-        # Notify only if quoted_user exists
         if quote.quoted_user and quote.quoted_user != quote.author:
-            Notification.objects.create(
-                recipient=quote.quoted_user,
-                sender=quote.author,
-                notification_type='new_quote',
-                title='New Quote About You',
-                message=f'{quote.author.get_full_name()} posted a quote about you',
-                quote=quote
-            )
+            emit_event('new_quote', actor=quote.author, recipient=quote.quoted_user, quote=quote)
 
 
 @extend_schema(
@@ -930,16 +906,8 @@ class WitnessQuoteView(APIView):
         )
 
         if created:
-            # Create notification
             if quote.author != request.user:
-                Notification.objects.create(
-                    recipient=quote.author,
-                    sender=request.user,
-                    notification_type='quote_witnessed',
-                    title='Quote Witnessed',
-                    message=f'{request.user.get_full_name()} witnessed your quote',
-                    quote=quote
-                )
+                emit_event('quote_witnessed', actor=request.user, recipient=quote.author, quote=quote)
             return Response({
                 'message': 'Quote witnessed',
                 'witness': QuoteWitnessSerializer(witness).data
@@ -963,16 +931,8 @@ class LikeQuoteView(APIView):
         )
 
         if created:
-            # Create notification
             if quote.author != request.user:
-                Notification.objects.create(
-                    recipient=quote.author,
-                    sender=request.user,
-                    notification_type='quote_liked',
-                    title='Quote Liked',
-                    message=f'{request.user.get_full_name()} liked your quote',
-                    quote=quote
-                )
+                emit_event('quote_liked', actor=request.user, recipient=quote.author, quote=quote)
 
             return Response({'message': 'Quote liked'})
         else:
@@ -1300,16 +1260,8 @@ class QuoteAssignUserView(APIView):
         quote.quoted_name = None
         quote.save(update_fields=['quoted_user', 'quoted_name', 'updated_at'])
 
-        # Notify the quoted user
         if target_user != request.user:
-            Notification.objects.create(
-                recipient=target_user,
-                sender=request.user,
-                notification_type='new_quote',
-                title='New Quote About You',
-                message=f'{request.user.get_full_name()} posted a quote about you',
-                quote=quote,
-            )
+            emit_event('new_quote', actor=request.user, recipient=target_user, quote=quote)
 
         return Response(
             QuoteSerializer(quote, context={'request': request}).data,
@@ -1318,15 +1270,83 @@ class QuoteAssignUserView(APIView):
 
 
 class NotificationListView(generics.ListAPIView):
-    """List user notifications"""
+    """List user notifications.
+
+    Groups are pre-built by the pipeline (one row per type/quote/friendship).
+    Actor User objects are batch-fetched in one query per page and blocked
+    actors are stripped in Python.  Groups where all actors are blocked are
+    excluded from the response.
+    """
     serializer_class = NotificationSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = StandardResultsPagination
 
     def get_queryset(self):
-        user = self.request.user
-        blocked_ids = user.get_all_blocked_user_ids()
-        return user.notifications.exclude(sender__id__in=blocked_ids)
+        return (
+            self.request.user.notifications
+            .select_related('quote', 'friendship')
+        )
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        items = page if page is not None else list(queryset)
+
+        # Batch-fetch all actor User objects across the page in one query
+        all_actor_ids = [uid for n in items for uid in n.actor_ids]
+        actors_by_id = {u.id: u for u in User.objects.filter(id__in=all_actor_ids)}
+
+        # Strip blocked actors; exclude groups where no visible actors remain
+        blocked_ids = set(request.user.get_all_blocked_user_ids())
+        visible = []
+        for n in items:
+            n._actors = [
+                actors_by_id[i] for i in n.actor_ids
+                if i in actors_by_id and i not in blocked_ids
+            ]
+            if n._actors:
+                visible.append(n)
+
+        if page is not None:
+            serializer = self.get_serializer(visible, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(visible, many=True)
+        return Response(serializer.data)
+
+
+import re
+_EXPO_TOKEN_RE = re.compile(r'^ExponentPushToken\[.+\]$')
+
+
+class DeviceTokenView(APIView):
+    """Register or deregister an Expo push token for the authenticated user."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        token = request.data.get('token', '').strip()
+        if not _EXPO_TOKEN_RE.match(token):
+            return Response({'detail': 'Invalid token format.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        device_token, created = DeviceToken.objects.get_or_create(
+            token=token,
+            defaults={'user': request.user, 'is_active': True},
+        )
+        if not created and (not device_token.is_active or device_token.user_id != request.user.id):
+            device_token.user = request.user
+            device_token.is_active = True
+            device_token.save(update_fields=['user', 'is_active', 'updated_at'])
+
+        return Response(
+            {'detail': 'Device registered.'},
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+    def delete(self, request):
+        token = request.data.get('token', '').strip()
+        deleted, _ = DeviceToken.objects.filter(user=request.user, token=token).delete()
+        if not deleted:
+            return Response({'detail': 'Token not found.'}, status=status.HTTP_404_NOT_FOUND)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class MarkNotificationReadView(APIView):
@@ -1381,12 +1401,10 @@ class UnreadNotificationCountView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        user = request.user
-        blocked_ids = user.get_all_blocked_user_ids()
         unread_count = Notification.objects.filter(
-            recipient=user,
+            recipient=request.user,
             is_read=False,
-        ).exclude(sender__id__in=blocked_ids).count()
+        ).count()
         return Response({'unread_count': unread_count})
 
 

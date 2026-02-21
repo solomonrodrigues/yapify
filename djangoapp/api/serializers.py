@@ -13,8 +13,9 @@ from django.conf import settings
 from django.utils import timezone
 
 from djangoapp.yapify.models import (
-    User, Friendship, Quote, QuoteWitness, QuoteLike, Notification, QuoteGuess, RecentSearchItem, Report
+    User, Friendship, Quote, QuoteWitness, QuoteLike, QuoteGuess, RecentSearchItem, Report
 )
+from djangoapp.notifications.models import Notification
 from djangoapp.yapify.choices import ReportReason
 
 
@@ -570,15 +571,20 @@ class PublicUserListSerializer(PublicUserSerializer):
 
 
 class NotificationSerializer(serializers.ModelSerializer):
-    """Serializer for notifications"""
-    sender = MinimalUserSerializer(read_only=True)
-    friendship = FriendshipSerializer(allow_null=True)
+    """Serializer for grouped notification records."""
+    actors = serializers.SerializerMethodField()
+    friendship = FriendshipSerializer(read_only=True, allow_null=True)
+
+    def get_actors(self, obj):
+        # _actors is attached by NotificationListView.list() via batch fetch
+        return MinimalUserSerializer(obj._actors, many=True).data
 
     class Meta:
         model = Notification
-        fields = ('id', 'sender', 'notification_type', 'title',
-                  'message', 'is_read', 'created_at', 'quote', 'friendship')
-        read_only_fields = ('id', 'sender', 'created_at')
+        fields = (
+            'id', 'notification_type', 'actors', 'actor_count',
+            'quote', 'friendship', 'is_read', 'last_event_at',
+        )
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
