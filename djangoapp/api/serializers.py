@@ -604,7 +604,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
         if email and password:
             user = authenticate(request=self.context.get('request'),
-                                username=email, password=password)
+                                username=email.lower(), password=password)
 
             if not user:
                 raise serializers.ValidationError('Invalid credentials')
