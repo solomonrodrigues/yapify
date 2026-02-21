@@ -430,61 +430,6 @@ class HiddenQuote(models.Model):
         ordering = ['-created_at']
 
 
-class Notification(models.Model):
-    """
-    Model to handle notifications for users
-    """
-    NOTIFICATION_TYPES = [
-        ('friend_request', 'Friend Request'),
-        ('friend_accepted', 'Friend Request Accepted'),
-        ('new_quote', 'New Quote About You'),
-        ('quote_witnessed', 'Quote Witnessed'),
-        ('quote_liked', 'Quote Liked'),
-    ]
-
-    recipient = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='notifications'
-    )
-    sender = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='sent_notifications',
-        null=True,
-        blank=True
-    )
-    notification_type = models.CharField(max_length=20, choices=NOTIFICATION_TYPES)
-    title = models.CharField(max_length=100)
-    message = models.TextField(max_length=300)
-    is_read = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    # Generic foreign key fields for linking to related objects
-    quote = models.ForeignKey(Quote, on_delete=models.CASCADE, null=True, blank=True)
-    friendship = models.ForeignKey(Friendship, on_delete=models.CASCADE, null=True, blank=True)
-
-    class Meta:
-        ordering = ['-created_at']
-        indexes = [
-            models.Index(fields=['recipient', 'is_read', 'created_at']),
-            models.Index(fields=['notification_type', 'created_at']),
-        ]
-
-    def __str__(self):
-        return f"{self.notification_type} for {self.recipient}"
-
-    def mark_as_read(self):
-        """Mark notification as read"""
-        self.is_read = True
-        self.save()
-
-    def mark_as_unread(self):
-        """Mark notification as unread"""
-        self.is_read = False
-        self.save()
-
-
 class QuoteGuess(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="guesses")
     quote = models.ForeignKey(Quote, on_delete=models.CASCADE, related_name="guesses")

@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.utils.translation import gettext_lazy as _
 from unfold.admin import ModelAdmin as UnfoldModelAdmin
 from .models import (
-    User, Friendship, Quote, QuoteWitness, QuoteLike, Notification, EmailVerification, QuoteGuess,
+    User, Friendship, Quote, QuoteWitness, QuoteLike, EmailVerification, QuoteGuess,
     SavedQuote, HiddenQuote, RecentSearchItem, Report,
 )
 
@@ -176,30 +176,6 @@ class QuoteLikeAdmin(UnfoldModelAdmin):
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('user', 'quote', 'quote__author')
-
-
-@admin.register(Notification)
-class NotificationAdmin(UnfoldModelAdmin):
-    list_display = ('notification_type', 'recipient', 'sender', 'is_read', 'created_at')
-    list_filter = ('notification_type', 'is_read', 'created_at')
-    search_fields = ('recipient__email', 'recipient__username', 'sender__email', 'sender__username', 'title')
-    autocomplete_fields = ('recipient', 'sender', 'quote', 'friendship')
-    readonly_fields = ('created_at',)
-    date_hierarchy = 'created_at'
-    actions = ['mark_as_read', 'mark_as_unread']
-
-    def get_queryset(self, request):
-        return super().get_queryset(request).select_related('recipient', 'sender')
-
-    @admin.action(description="Mark selected notifications as read")
-    def mark_as_read(self, request, queryset):
-        updated = queryset.filter(is_read=False).update(is_read=True)
-        self.message_user(request, f"Marked {updated} notification(s) as read.", messages.SUCCESS)
-
-    @admin.action(description="Mark selected notifications as unread")
-    def mark_as_unread(self, request, queryset):
-        updated = queryset.filter(is_read=True).update(is_read=False)
-        self.message_user(request, f"Marked {updated} notification(s) as unread.", messages.SUCCESS)
 
 
 @admin.register(QuoteGuess)
