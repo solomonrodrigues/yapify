@@ -92,3 +92,5 @@ Deployments run the `web` process from the Procfile, which automatically runs mi
 web: python3 manage.py migrate && python3 manage.py collectstatic --no-input && gunicorn djangoapp.yapify.wsgi
 worker: python3 manage.py qcluster
 ```
+
+**The `worker` process must be started manually in Railway.** Railway only starts the `web` process automatically. To run the Django Q2 notification worker, add a second service in the Railway dashboard pointing to the same repo with start command `python3 manage.py qcluster`. Without it, events are enqueued but never processed — no notifications or push alerts will be sent.
