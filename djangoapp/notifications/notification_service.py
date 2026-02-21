@@ -127,7 +127,7 @@ def process_event(event_id):
             defaults={
                 'func': 'djangoapp.notifications.tasks.flush_batched_push',
                 'args': f'{recipient_id},"{event.event_type}",{quote_id},"{now.isoformat()}"',
-                'run_at': now + timedelta(minutes=30),
+                'next_run': now + timedelta(minutes=30),
                 'schedule_type': Schedule.ONCE,
             }
         )
