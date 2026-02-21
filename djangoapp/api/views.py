@@ -1163,6 +1163,7 @@ class GuessableQuotesListView(OptimizedQuoteViewMixin, generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user
         blocked_ids = user.get_all_blocked_user_ids()
+        friends = user.get_friends().exclude(id__in=blocked_ids)
 
         # Get IDs of quotes user has already guessed
         guessed_quote_ids = QuoteGuess.objects.filter(
@@ -1174,6 +1175,10 @@ class GuessableQuotesListView(OptimizedQuoteViewMixin, generics.ListAPIView):
             .filter(
                 is_active=True,
                 quoted_user__isnull=False,  # Must have a real user to guess
+            )
+            .filter(
+                Q(author__in=friends) |
+                Q(quoted_user__in=friends)
             )
             .exclude(author=user)  # Can't guess own quotes
             .exclude(quoted_user=user)  # Can't guess quotes about yourself
