@@ -13,3 +13,5 @@ drf-spectacular==0.28.0
 django-post-office==3.10.1
 django-anymail==13.1
 django-unfold==0.80.1
+django-q2==1.9.0
+exponent-server-sdk==2.2.0

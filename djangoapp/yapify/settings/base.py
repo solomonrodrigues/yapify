@@ -30,6 +30,8 @@ INSTALLED_APPS += [  # Third party apps
 INSTALLED_APPS += [  # Custom apps
     'djangoapp.api',
     'djangoapp.yapify',
+    'djangoapp.notifications',
+    'django_q',
 ]
 
 MIDDLEWARE = [
@@ -170,6 +172,20 @@ SPECTACULAR_SETTINGS = {
 QUOTE_GUESS_MAX_SKIPS_PER_WEEK = 3
 QUOTE_EDIT_WINDOW = timedelta(minutes=15)
 
+PUSH_NOTIFICATIONS_ENABLED = False  # Overridden to True in production
+NOTIFICATION_RETENTION_DAYS = 90
+
+Q_CLUSTER = {
+    'name': 'yapify',
+    'workers': 2,
+    'recycle': 500,
+    'timeout': 60,
+    'retry': 120,
+    'save_limit': 250,
+    'orm': 'default',
+    'catch_up': False,
+}
+
 # Django Unfold admin theme
 UNFOLD = {
     "SITE_TITLE": "Yapify Admin",
@@ -199,8 +215,15 @@ UNFOLD = {
                 "title": "Social",
                 "items": [
                     {"title": "Friendships", "link": "/admin/yapify/friendship/", "icon": "group"},
-                    {"title": "Notifications", "link": "/admin/yapify/notification/", "icon": "notifications"},
                     {"title": "Recent Searches", "link": "/admin/yapify/recentsearchitem/", "icon": "search"},
+                ],
+            },
+            {
+                "title": "Notifications",
+                "items": [
+                    {"title": "Notifications", "link": "/admin/notifications/notification/", "icon": "notifications"},
+                    {"title": "Events", "link": "/admin/notifications/event/", "icon": "bolt"},
+                    {"title": "Device Tokens", "link": "/admin/notifications/devicetoken/", "icon": "smartphone"},
                 ],
             },
             {
