@@ -78,3 +78,17 @@ djangoapp/
 Three-tier settings structure: `base.py` → `development.py`/`production.py`
 - Development: SQLite database, debug toolbar enabled
 - Production: PostgreSQL via `DATABASE_URL`, Sentry error tracking, WhiteNoise for static files
+
+## Hosting & Deployment
+
+- **Platform:** Railway
+- **Database:** Railway-managed PostgreSQL (provisioned as a Railway service, connection string injected as `DATABASE_URL`)
+- **CI/CD:** GitHub integration in Railway — pushes to `main` trigger automatic deployments
+- **Environment variables:** Managed via the Railway dashboard (not committed to the repo)
+
+Deployments run the `web` process from the Procfile, which automatically runs migrations and collects static files before starting the server:
+
+```
+web: python3 manage.py migrate && python3 manage.py collectstatic --no-input && gunicorn djangoapp.yapify.wsgi
+worker: python3 manage.py qcluster
+```
