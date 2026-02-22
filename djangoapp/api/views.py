@@ -1636,7 +1636,7 @@ class ReportQuoteView(APIView):
     )
     @transaction.atomic
     def post(self, request, quote_id):
-        quote = get_object_or_404(Quote, id=quote_id, is_active=True)
+        quote = get_visible_quote_or_404(request.user, quote_id)
 
         if quote.author_id == request.user.id:
             return Response(
@@ -1696,7 +1696,7 @@ class ReportQuoteView(APIView):
     )
     @transaction.atomic
     def delete(self, request, quote_id):
-        quote = get_object_or_404(Quote, id=quote_id, is_active=True)
+        quote = get_visible_quote_or_404(request.user, quote_id)
 
         deleted_count, _ = Report.objects.filter(
             reporter=request.user,
