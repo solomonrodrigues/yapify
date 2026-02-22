@@ -70,6 +70,25 @@ def get_optimized_quote_queryset(queryset, user):
     )
 
 
+def get_visible_quote_or_404(user, quote_id):
+    """
+    Return the quote with the given ID if the user is allowed to see it,
+    or raise Http404. Applies the same union-visibility rule used by the
+    main quote feed: the quote must be active and its author or quoted_user
+    must be in the requesting user's friend list (or the user must be the
+    author/quoted_user themselves).
+    """
+    blocked_ids = user.get_all_blocked_user_ids()
+    friends = user.get_friends().exclude(id__in=blocked_ids)
+    qs = Quote.objects.filter(is_active=True).filter(
+        Q(author__in=friends) |
+        Q(quoted_user__in=friends) |
+        Q(author=user) |
+        Q(quoted_user=user)
+    ).exclude(author__id__in=blocked_ids).exclude(quoted_user__id__in=blocked_ids)
+    return get_object_or_404(qs, id=quote_id)
+
+
 class OptimizedQuoteViewMixin:
     """Mixin that caches request-level data in serializer context for QuoteSerializer."""
 
@@ -898,7 +917,7 @@ class WitnessQuoteView(APIView):
 
     @transaction.atomic
     def post(self, request, quote_id):
-        quote = get_object_or_404(Quote, id=quote_id, is_active=True)
+        quote = get_visible_quote_or_404(request.user, quote_id)
 
         witness, created = QuoteWitness.objects.get_or_create(
             quote=quote,
@@ -923,7 +942,7 @@ class LikeQuoteView(APIView):
 
     @transaction.atomic
     def post(self, request, quote_id):
-        quote = get_object_or_404(Quote, id=quote_id, is_active=True)
+        quote = get_visible_quote_or_404(request.user, quote_id)
 
         like, created = QuoteLike.objects.get_or_create(
             quote=quote,
@@ -948,7 +967,7 @@ class QuoteLikesListView(generics.ListAPIView):
 
     def get_queryset(self):
         quote_id = self.kwargs.get('quote_id')
-        quote = get_object_or_404(Quote, id=quote_id, is_active=True)
+        quote = get_visible_quote_or_404(self.request.user, quote_id)
         blocked_ids = self.request.user.get_all_blocked_user_ids()
 
         qs = User.objects.filter(
@@ -965,7 +984,7 @@ class QuoteWitnessesListView(generics.ListAPIView):
 
     def get_queryset(self):
         quote_id = self.kwargs.get('quote_id')
-        quote = get_object_or_404(Quote, id=quote_id, is_active=True)
+        quote = get_visible_quote_or_404(self.request.user, quote_id)
         blocked_ids = self.request.user.get_all_blocked_user_ids()
 
         qs = User.objects.filter(
@@ -1019,7 +1038,7 @@ class SaveQuoteView(APIView):
 
     @transaction.atomic
     def post(self, request, quote_id):
-        quote = get_object_or_404(Quote, id=quote_id, is_active=True)
+        quote = get_visible_quote_or_404(request.user, quote_id)
 
         saved, created = SavedQuote.objects.get_or_create(
             user=request.user,
@@ -1040,7 +1059,7 @@ class SaveQuoteView(APIView):
 
     @transaction.atomic
     def delete(self, request, quote_id):
-        quote = get_object_or_404(Quote, id=quote_id, is_active=True)
+        quote = get_visible_quote_or_404(request.user, quote_id)
 
         deleted_count, _ = SavedQuote.objects.filter(
             user=request.user,
@@ -1065,7 +1084,7 @@ class HideQuoteView(APIView):
 
     @transaction.atomic
     def post(self, request, quote_id):
-        quote = get_object_or_404(Quote, id=quote_id, is_active=True)
+        quote = get_visible_quote_or_404(request.user, quote_id)
 
         hidden, created = HiddenQuote.objects.get_or_create(
             user=request.user,
@@ -1086,7 +1105,7 @@ class HideQuoteView(APIView):
 
     @transaction.atomic
     def delete(self, request, quote_id):
-        quote = get_object_or_404(Quote, id=quote_id, is_active=True)
+        quote = get_visible_quote_or_404(request.user, quote_id)
 
         deleted_count, _ = HiddenQuote.objects.filter(
             user=request.user,
