@@ -1,4 +1,5 @@
 # views.py
+from datetime import timedelta
 from django.db import transaction
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse
@@ -99,8 +100,7 @@ class OptimizedQuoteViewMixin:
             now = timezone.now()
             used = QuoteGuess.objects.filter(
                 user=user, skipped=True,
-                created_at__week=now.isocalendar().week,
-                created_at__year=now.year,
+                created_at__gte=now - timedelta(days=7),
             ).count()
             context['remaining_skips'] = max(settings.QUOTE_GUESS_MAX_SKIPS_PER_WEEK - used, 0)
             context['valid_friends'] = list(user.get_valid_friends())

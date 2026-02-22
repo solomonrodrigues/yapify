@@ -381,10 +381,10 @@ class QuoteSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
             return 0
+        from datetime import timedelta
         used = QuoteGuess.objects.filter(
             user=request.user, skipped=True,
-            created_at__week=timezone.now().isocalendar().week,
-            created_at__year=timezone.now().year
+            created_at__gte=timezone.now() - timedelta(days=7),
         ).count()
         return max(settings.QUOTE_GUESS_MAX_SKIPS_PER_WEEK - used, 0)
 
