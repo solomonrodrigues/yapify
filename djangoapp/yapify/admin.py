@@ -4,6 +4,14 @@ from django.contrib import messages
 from django.utils.translation import gettext_lazy as _
 from unfold.admin import ModelAdmin as UnfoldModelAdmin
 from unfold.forms import AdminPasswordChangeForm, UserChangeForm, UserCreationForm
+from post_office.admin import (
+    EmailAdmin as _PostOfficeEmailAdmin,
+    LogAdmin as _PostOfficeLogAdmin,
+    EmailTemplateAdmin as _PostOfficeEmailTemplateAdmin,
+    AttachmentAdmin as _PostOfficeAttachmentAdmin,
+)
+from post_office.models import Email as PostOfficeEmail, Log as PostOfficeLog, \
+    EmailTemplate as PostOfficeEmailTemplate, Attachment as PostOfficeAttachment
 from .models import (
     User, Friendship, Quote, QuoteWitness, QuoteLike, EmailVerification, QuoteGuess,
     SavedQuote, HiddenQuote, RecentSearchItem, Report,
@@ -336,3 +344,32 @@ class ReportAdmin(UnfoldModelAdmin):
             return f'{snapshot.get("username", "?")} [deleted]'
         return "-"
     target_display.short_description = "Target"
+
+
+# ── django-post-office ────────────────────────────────────────────────────────
+# Unregister the default admin classes and re-register with Unfold styling.
+
+admin.site.unregister(PostOfficeEmail)
+admin.site.unregister(PostOfficeLog)
+admin.site.unregister(PostOfficeEmailTemplate)
+admin.site.unregister(PostOfficeAttachment)
+
+
+@admin.register(PostOfficeEmail)
+class PostOfficeEmailAdmin(_PostOfficeEmailAdmin, UnfoldModelAdmin):
+    pass
+
+
+@admin.register(PostOfficeLog)
+class PostOfficeLogAdmin(_PostOfficeLogAdmin, UnfoldModelAdmin):
+    pass
+
+
+@admin.register(PostOfficeEmailTemplate)
+class PostOfficeEmailTemplateAdmin(_PostOfficeEmailTemplateAdmin, UnfoldModelAdmin):
+    pass
+
+
+@admin.register(PostOfficeAttachment)
+class PostOfficeAttachmentAdmin(_PostOfficeAttachmentAdmin, UnfoldModelAdmin):
+    pass

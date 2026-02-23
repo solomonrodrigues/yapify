@@ -232,6 +232,15 @@ UNFOLD = {
                     {"title": "Reports", "link": "/admin/yapify/report/", "icon": "flag"},
                 ],
             },
+            {
+                "title": "Email",
+                "items": [
+                    {"title": "Emails", "link": "/admin/post_office/email/", "icon": "mail"},
+                    {"title": "Templates", "link": "/admin/post_office/emailtemplate/", "icon": "description"},
+                    {"title": "Attachments", "link": "/admin/post_office/attachment/", "icon": "attach_file"},
+                    {"title": "Logs", "link": "/admin/post_office/log/", "icon": "receipt_long"},
+                ],
+            },
         ],
     },
 }
