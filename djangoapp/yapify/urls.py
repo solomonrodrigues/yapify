@@ -18,9 +18,12 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 
+from djangoapp.yapify.views import invite_view
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('djangoapp.api.urls')),
+    path('invite/<str:username>/', invite_view, name='invite'),
 ]
 
 if settings.DEBUG:
