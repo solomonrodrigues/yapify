@@ -31,6 +31,7 @@ from .serializers import (
     ResendVerificationSerializer,
     VerifyEmailSerializer,
     QuoteGuessSerializer,
+    QuoteGuessCreateResponseSerializer,
     QuoteGuessListItemSerializer,
     RecentSearchItemSerializer,
     RecentSearchCreateSerializer,
@@ -1450,6 +1451,14 @@ class QuoteGuessCreateView(generics.CreateAPIView):
     queryset = QuoteGuess.objects.all()
     serializer_class = QuoteGuessSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        guess = serializer.save()
+        request.user.refresh_from_db(fields=['current_streak', 'longest_streak'])
+        response_serializer = QuoteGuessCreateResponseSerializer(guess, context={'request': request})
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
 
 class QuoteGuessesListView(generics.ListAPIView):

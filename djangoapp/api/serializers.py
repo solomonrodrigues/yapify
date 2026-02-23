@@ -189,6 +189,21 @@ class QuoteGuessSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
+class QuoteGuessCreateResponseSerializer(QuoteGuessSerializer):
+    """Response serializer for guess creation — includes updated streak values."""
+    current_streak = serializers.SerializerMethodField()
+    longest_streak = serializers.SerializerMethodField()
+
+    class Meta(QuoteGuessSerializer.Meta):
+        fields = QuoteGuessSerializer.Meta.fields + ["current_streak", "longest_streak"]
+
+    def get_current_streak(self, obj) -> int:
+        return self.context["request"].user.current_streak
+
+    def get_longest_streak(self, obj) -> int:
+        return self.context["request"].user.longest_streak
+
+
 class QuoteGuessListItemSerializer(serializers.ModelSerializer):
     """Serializer for listing guesses on a quote with friendship status"""
     user = MinimalUserSerializer(read_only=True)

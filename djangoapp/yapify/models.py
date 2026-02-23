@@ -118,11 +118,11 @@ class User(AbstractUser):
         self.current_streak += 1
         if self.current_streak > self.longest_streak:
             self.longest_streak = self.current_streak
-        self.save()
+        self.save(update_fields=['current_streak', 'longest_streak'])
 
     def reset_streak(self):
         self.current_streak = 0
-        self.save()
+        self.save(update_fields=['current_streak'])
 
 
 class EmailVerification(models.Model):
