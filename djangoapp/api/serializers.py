@@ -159,6 +159,18 @@ class QuoteGuessSerializer(serializers.ModelSerializer):
         user = request.user
         quote = data.get("quote")
 
+        # Visibility check: user must be within the quote's friend-union scope
+        blocked_ids = user.get_all_blocked_user_ids()
+        friends = user.get_friends().exclude(id__in=blocked_ids)
+        is_visible = (
+            quote.author_id == user.id
+            or quote.quoted_user_id == user.id
+            or friends.filter(id=quote.author_id).exists()
+            or (quote.quoted_user_id and friends.filter(id=quote.quoted_user_id).exists())
+        )
+        if not is_visible:
+            raise serializers.ValidationError("Quote not found.")
+
         # Prevent author from guessing their own quote
         if quote.author_id == user.id:
             raise serializers.ValidationError("You cannot guess on a quote you posted.")
