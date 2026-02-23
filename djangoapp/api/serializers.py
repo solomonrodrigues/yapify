@@ -171,6 +171,10 @@ class QuoteGuessSerializer(serializers.ModelSerializer):
         if not is_visible:
             raise serializers.ValidationError("Quote not found.")
 
+        # Prevent duplicate guesses
+        if QuoteGuess.objects.filter(user=user, quote=quote).exists():
+            raise serializers.ValidationError("You have already guessed on this quote.")
+
         # Prevent author from guessing their own quote
         if quote.author_id == user.id:
             raise serializers.ValidationError("You cannot guess on a quote you posted.")
