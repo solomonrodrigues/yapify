@@ -1447,6 +1447,7 @@ class DeleteNotificationView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+@extend_schema(responses={201: QuoteGuessCreateResponseSerializer})
 class QuoteGuessCreateView(generics.CreateAPIView):
     queryset = QuoteGuess.objects.all()
     serializer_class = QuoteGuessSerializer
