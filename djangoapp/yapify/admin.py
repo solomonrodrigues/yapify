@@ -3,6 +3,7 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib import messages
 from django.utils.translation import gettext_lazy as _
 from unfold.admin import ModelAdmin as UnfoldModelAdmin
+from unfold.forms import AdminPasswordChangeForm, UserChangeForm, UserCreationForm
 from .models import (
     User, Friendship, Quote, QuoteWitness, QuoteLike, EmailVerification, QuoteGuess,
     SavedQuote, HiddenQuote, RecentSearchItem, Report,
@@ -11,6 +12,9 @@ from .models import (
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin, UnfoldModelAdmin):
+    form = UserChangeForm
+    add_form = UserCreationForm
+    change_password_form = AdminPasswordChangeForm
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
         (_('Personal info'), {'fields': ('username', 'display_name', 'bio')}),
