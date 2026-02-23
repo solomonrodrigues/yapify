@@ -28,7 +28,7 @@ def send_verification_email(user: User, code: str) -> None:
         """
 
         mail.send(
-            recipients=user.email,
+            recipients=[user.email],
             sender=settings.DEFAULT_FROM_EMAIL,
             subject="Verify your email address",
             message=verification_message,
@@ -58,7 +58,7 @@ def send_password_reset_email(user: User, code: str) -> None:
         """
 
         mail.send(
-            recipients=user.email,
+            recipients=[user.email],
             sender=settings.DEFAULT_FROM_EMAIL,
             subject="Reset your password",
             message=reset_message,

@@ -153,12 +153,13 @@ class RegisterView(generics.CreateAPIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'auth'
 
+    @transaction.atomic
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
             ver, code = EmailVerification.create_for(user)
-            send_verification_email(user, code)
+            transaction.on_commit(lambda: send_verification_email(user, code))
             return Response({
                 'user': UserSerializer(user).data,
                 'message': 'User created successfully. Verification code sent to email.'
@@ -222,7 +223,7 @@ class ResendVerificationView(APIView):
             return Response({"detail": "Email already verified."}, status=status.HTTP_400_BAD_REQUEST)
 
         ver, code = EmailVerification.create_for(user)
-        send_verification_email(user, code)
+        transaction.on_commit(lambda: send_verification_email(user, code))
         return Response({"detail": "Verification code sent."}, status=status.HTTP_200_OK)
 
 
@@ -250,7 +251,7 @@ class PasswordResetRequestView(APIView):
             return Response({"detail": "If an account exists, a reset code has been sent."}, status=status.HTTP_200_OK)
 
         reset, code = PasswordReset.create_for(user)
-        send_password_reset_email(user, code)
+        transaction.on_commit(lambda: send_password_reset_email(user, code))
         return Response({"detail": "If an account exists, a reset code has been sent."}, status=status.HTTP_200_OK)
 
 
