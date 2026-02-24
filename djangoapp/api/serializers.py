@@ -55,7 +55,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
 class VerifyEmailSerializer(serializers.Serializer):
     email = serializers.EmailField()
-    code = serializers.CharField(max_length=8)
+    code = serializers.CharField(max_length=6)
 
 
 class ResendVerificationSerializer(serializers.Serializer):
@@ -68,7 +68,7 @@ class PasswordResetRequestSerializer(serializers.Serializer):
 
 class PasswordResetConfirmSerializer(serializers.Serializer):
     email = serializers.EmailField()
-    code = serializers.CharField(max_length=8)
+    code = serializers.CharField(max_length=6)
     new_password = serializers.CharField(write_only=True, validators=[validate_password])
     new_password_confirm = serializers.CharField(write_only=True)
 
