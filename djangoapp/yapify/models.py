@@ -473,9 +473,22 @@ class QuoteGuess(models.Model):
         creating = self._state.adding  # only adjust streak on first save
 
         # Lock the user row before saving the guess so that concurrent requests
-        # cannot interleave their streak reads/writes.
+        # cannot interleave their streak reads/writes or the skip-count check.
         if creating:
             user = User.objects.select_for_update().get(pk=self.user_id)
+
+            # Re-check skip limit under the lock so two simultaneous skip
+            # requests cannot both pass the serializer's pre-lock check and
+            # each consume a slot.
+            if self.skipped:
+                week_ago = timezone.now() - timedelta(days=7)
+                skips_this_week = QuoteGuess.objects.filter(
+                    user_id=self.user_id, skipped=True, created_at__gte=week_ago
+                ).count()
+                if skips_this_week >= settings.QUOTE_GUESS_MAX_SKIPS_PER_WEEK:
+                    raise ValidationError(
+                        f"You can only skip {settings.QUOTE_GUESS_MAX_SKIPS_PER_WEEK} times per week."
+                    )
 
         super().save(*args, **kwargs)
 
