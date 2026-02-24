@@ -13,7 +13,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.shortcuts import get_object_or_404
 from django.conf import settings
-from django.db.models import Q, Max, Count, Exists, OuterRef, Prefetch
+from django.db.models import F, Q, Max, Count, Exists, OuterRef, Prefetch
 from djangoapp.yapify.models import User, Friendship, Quote, QuoteWitness, QuoteLike, EmailVerification, \
     QuoteGuess, RecentSearchItem, SavedQuote, HiddenQuote, PasswordReset, Report
 from djangoapp.notifications.models import Notification, Event, DeviceToken
@@ -304,10 +304,16 @@ class PasswordResetConfirmView(APIView):
         reset = PasswordReset.objects.filter(
             user=user,
             used_at__isnull=True,
-            expires_at__gte=timezone.now()
+            expires_at__gte=timezone.now(),
+            failed_attempts__lt=PasswordReset.MAX_FAILED_ATTEMPTS,
         ).order_by('-created_at').first()
 
-        if not reset or not reset.matches(code):
+        if not reset:
+            return Response({"detail": "Invalid or expired code."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not reset.matches(code):
+            reset.failed_attempts = F('failed_attempts') + 1
+            reset.save(update_fields=['failed_attempts'])
             return Response({"detail": "Invalid or expired code."}, status=status.HTTP_400_BAD_REQUEST)
 
         matched_reset = reset

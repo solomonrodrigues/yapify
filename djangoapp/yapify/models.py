@@ -150,11 +150,14 @@ class EmailVerification(models.Model):
 
 
 class PasswordReset(models.Model):
+    MAX_FAILED_ATTEMPTS = 5
+
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='password_resets')
     code_hash = models.CharField(max_length=256)
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
     used_at = models.DateTimeField(null=True, blank=True)
+    failed_attempts = models.PositiveSmallIntegerField(default=0)
 
     @classmethod
     def create_for(cls, user, ttl_minutes: int = 15):
@@ -167,7 +170,11 @@ class PasswordReset(models.Model):
         return obj, code
 
     def is_valid(self) -> bool:
-        return self.used_at is None and timezone.now() <= self.expires_at
+        return (
+            self.used_at is None
+            and timezone.now() <= self.expires_at
+            and self.failed_attempts < self.MAX_FAILED_ATTEMPTS
+        )
 
     def matches(self, code: str) -> bool:
         return check_password(code, self.code_hash)
