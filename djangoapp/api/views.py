@@ -312,11 +312,21 @@ class PasswordResetConfirmView(APIView):
 
         matched_reset = reset
 
-        matched_reset.used_at = timezone.now()
-        matched_reset.save(update_fields=['used_at'])
+        with transaction.atomic():
+            matched_reset.used_at = timezone.now()
+            matched_reset.save(update_fields=['used_at'])
 
-        user.set_password(new_password)
-        user.save(update_fields=['password'])
+            user.set_password(new_password)
+            user.save(update_fields=['password'])
+
+            # Invalidate all outstanding JWT sessions so an attacker holding a
+            # live refresh token cannot retain access after the owner resets.
+            from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
+            tokens = OutstandingToken.objects.filter(user=user)
+            BlacklistedToken.objects.bulk_create(
+                [BlacklistedToken(token=t) for t in tokens],
+                ignore_conflicts=True,
+            )
 
         return Response({"detail": "Password reset successfully."}, status=status.HTTP_200_OK)
 
