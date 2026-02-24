@@ -267,8 +267,20 @@ class PasswordResetRequestView(APIView):
             # Silent success to avoid user enumeration
             return Response({"detail": "If an account exists, a reset code has been sent."}, status=status.HTTP_200_OK)
 
-        reset, code = PasswordReset.create_for(user)
-        transaction.on_commit(lambda: send_password_reset_email(user, code))
+        # Prevent email flooding: if the user already has a valid, unused reset
+        # code, silently succeed without sending another email. A new code will
+        # only be issued once the existing one expires, is used, or is exhausted.
+        already_active = PasswordReset.objects.filter(
+            user=user,
+            used_at__isnull=True,
+            expires_at__gte=timezone.now(),
+            failed_attempts__lt=PasswordReset.MAX_FAILED_ATTEMPTS,
+        ).exists()
+
+        if not already_active:
+            reset, code = PasswordReset.create_for(user)
+            transaction.on_commit(lambda: send_password_reset_email(user, code))
+
         return Response({"detail": "If an account exists, a reset code has been sent."}, status=status.HTTP_200_OK)
 
 
