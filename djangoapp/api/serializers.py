@@ -82,6 +82,12 @@ class DetailResponseSerializer(serializers.Serializer):
     detail = serializers.CharField()
 
 
+class VerifyEmailResponseSerializer(serializers.Serializer):
+    detail = serializers.CharField()
+    access = serializers.CharField()
+    refresh = serializers.CharField()
+
+
 class UserSerializer(serializers.ModelSerializer):
     """Serializer for user profile"""
     friends_count = serializers.SerializerMethodField()

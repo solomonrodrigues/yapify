@@ -9,6 +9,7 @@ from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.shortcuts import get_object_or_404
 from django.conf import settings
@@ -30,6 +31,7 @@ from .serializers import (
     PublicUserListSerializer,
     ResendVerificationSerializer,
     VerifyEmailSerializer,
+    VerifyEmailResponseSerializer,
     QuoteGuessSerializer,
     QuoteGuessCreateResponseSerializer,
     QuoteGuessListItemSerializer,
@@ -167,6 +169,16 @@ class RegisterView(generics.CreateAPIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@extend_schema(
+    summary="Verify email address",
+    description="Verify a user's email address using the 6-digit code sent to their inbox. Returns JWT tokens on success so the user is logged in immediately.",
+    request=VerifyEmailSerializer,
+    responses={
+        200: VerifyEmailResponseSerializer,
+        400: DetailResponseSerializer,
+    },
+    tags=["auth"],
+)
 class VerifyEmailView(APIView):
     permission_classes = [permissions.AllowAny]
     throttle_classes = [ScopedRateThrottle]
@@ -200,7 +212,12 @@ class VerifyEmailView(APIView):
             user.is_email_verified = True
             user.save(update_fields=['is_email_verified'])
 
-        return Response({"detail": "Email verified."}, status=status.HTTP_200_OK)
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            "detail": "Email verified.",
+            "access": str(refresh.access_token),
+            "refresh": str(refresh),
+        }, status=status.HTTP_200_OK)
 
 
 class ResendVerificationView(APIView):
