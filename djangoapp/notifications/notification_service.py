@@ -10,6 +10,8 @@ from djangoapp.notifications.models import Event, Notification
 HIGH_TIER = {'friend_request', 'friend_accepted', 'new_quote'}
 LOW_TIER = {'quote_witnessed', 'quote_liked'}
 
+_MAX_NOTIFICATIONS_PER_USER = 500
+
 _PUSH_TITLES = {
     'friend_request': 'New Friend Request',
     'friend_accepted': 'Friend Request Accepted',
@@ -103,6 +105,16 @@ def process_event(event_id):
         notification.last_event_at = max(notification.last_event_at, event.created_at)
         notification.is_read = False
         notification.save()
+
+        # Enforce per-user cap: delete oldest notifications beyond the limit.
+        excess_ids = list(
+            Notification.objects
+            .filter(recipient=event.recipient)
+            .order_by('-last_event_at')
+            .values_list('id', flat=True)[_MAX_NOTIFICATIONS_PER_USER:]
+        )
+        if excess_ids:
+            Notification.objects.filter(id__in=excess_ids).delete()
 
     event.processed_at = timezone.now()
     event.save(update_fields=['processed_at'])
