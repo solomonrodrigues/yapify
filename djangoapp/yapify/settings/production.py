@@ -12,7 +12,7 @@ if not DEBUG:
         # Add data like request headers and IP for users,
         # see https://docs.sentry.io/platforms/python/data-management/data-collected/ for more info
         dsn=os.environ["SENTRY_DSN"],
-        send_default_pii=True,
+        send_default_pii=False,
     )
 
 ALLOWED_HOSTS = ['yapify.net',]

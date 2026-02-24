@@ -5,7 +5,7 @@ from datetime import timedelta
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "unsafe-secret-key-for-dev")
+SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
 DEBUG = False
 
 INSTALLED_APPS = [  # Django apps
@@ -141,8 +141,7 @@ SIMPLE_JWT = {
     "BLACKLIST_AFTER_ROTATION": True,  # immediately revoke the old refresh token
 }
 
-# Allow all origins during development (NOT for production)
-# ToDo: Handle cors allowed origins for production
+# Allow all origins in development; production.py overrides this.
 CORS_ALLOW_ALL_ORIGINS = True
 
 # By default, send via Post Office

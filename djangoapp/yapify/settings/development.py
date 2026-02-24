@@ -1,4 +1,7 @@
 # djangoapp/yapify/settings/development.py
+import os
+os.environ.setdefault("DJANGO_SECRET_KEY", "unsafe-secret-key-for-dev-only")
+
 from .base import *
 
 DEBUG = True
