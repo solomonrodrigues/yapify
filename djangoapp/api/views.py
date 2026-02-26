@@ -178,7 +178,10 @@ class RegisterView(generics.CreateAPIView):
 
 @extend_schema(
     summary="Verify email address",
-    description="Verify a user's email address using the 6-digit code sent to their inbox. Returns JWT tokens on success so the user is logged in immediately.",
+    description=(
+        "Verify a user's email address using the 6-digit code sent to their inbox."
+        "Returns JWT tokens on success so the user is logged in immediately."
+    ),
     request=VerifyEmailSerializer,
     responses={
         200: VerifyEmailResponseSerializer,
@@ -206,7 +209,7 @@ class VerifyEmailView(APIView):
         ver = (
             EmailVerification.objects
             .filter(user=user, used_at__isnull=True)
-            .order_by(‘-created_at’)
+            .order_by('-created_at')
             .first()
         )
         if not ver or not ver.is_valid() or not ver.matches(code):
@@ -313,7 +316,7 @@ class PasswordResetConfirmView(APIView):
         code = s.validated_data['code']
         new_password = s.validated_data['new_password']
 
-        # Resolve user first so we check only their most recent reset,
+        # Resolve user first, so we check only their most recent reset,
         # avoiding cross-user iteration and brute-force enumeration.
         try:
             user = User.objects.get(email__iexact=email)
@@ -882,7 +885,7 @@ class QuoteSearchView(OptimizedQuoteViewMixin, generics.ListAPIView):
         if not search:
             return qs.none()
 
-        # Attribution fields match (author name/username, quoted user name/username, quoted_name)
+        # Attribution fields match (author name/username, quoted user display name/username, quoted_name)
         attribution_q = (
             Q(quoted_name__icontains=search)
             | Q(quoted_user__username__icontains=search)
@@ -1371,7 +1374,7 @@ class NotificationListView(generics.ListAPIView):
 
 
 import re
-_EXPO_TOKEN_RE = re.compile(r'^ExponentPushToken\[.+\]$')
+_EXPO_TOKEN_RE = re.compile(r'^ExponentPushToken\[.+]$')
 
 
 class DeviceTokenView(APIView):
