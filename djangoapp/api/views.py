@@ -44,6 +44,14 @@ from .serializers import (
     ReportResponseSerializer,
 )
 from .utils import send_verification_email, normalize_email, send_password_reset_email
+from .exceptions import api_error
+from .error_codes import (
+    VERIFICATION_CODE_INVALID, EMAIL_ALREADY_VERIFIED, RESET_CODE_INVALID,
+    NO_PENDING_REQUEST, NOT_FRIENDS, INVALID_ACTION, CANNOT_BLOCK_SELF,
+    INVALID_QUOTE_RESPONSE, QUOTE_ALREADY_HAS_USER, FIELD_REQUIRED,
+    CANNOT_REPORT_SELF, ALREADY_REPORTED, REPORT_NOT_FOUND,
+    INVALID_TOKEN_FORMAT, NOT_FOUND, MISSING_PARAMETERS, INVALID_PARAMETER,
+)
 
 
 def get_optimized_quote_queryset(queryset, user):
@@ -158,15 +166,14 @@ class RegisterView(generics.CreateAPIView):
     @transaction.atomic
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-        if serializer.is_valid():
-            user = serializer.save()
-            ver, code = EmailVerification.create_for(user)
-            transaction.on_commit(lambda: send_verification_email(user, code))
-            return Response({
-                'user': UserSerializer(user).data,
-                'message': 'User created successfully. Verification code sent to email.'
-            }, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        ver, code = EmailVerification.create_for(user)
+        transaction.on_commit(lambda: send_verification_email(user, code))
+        return Response({
+            'user': UserSerializer(user).data,
+            'message': 'User created successfully. Verification code sent to email.'
+        }, status=status.HTTP_201_CREATED)
 
 
 @extend_schema(
@@ -194,16 +201,16 @@ class VerifyEmailView(APIView):
             user = User.objects.get(email__iexact=email)
         except User.DoesNotExist:
             # Don’t leak existence
-            return Response({"detail": "Invalid or expired code."}, status=status.HTTP_400_BAD_REQUEST)
+            return api_error(VERIFICATION_CODE_INVALID, "Invalid or expired code.", status.HTTP_400_BAD_REQUEST)
 
         ver = (
             EmailVerification.objects
             .filter(user=user, used_at__isnull=True)
-            .order_by('-created_at')
+            .order_by(‘-created_at’)
             .first()
         )
         if not ver or not ver.is_valid() or not ver.matches(code):
-            return Response({"detail": "Invalid or expired code."}, status=status.HTTP_400_BAD_REQUEST)
+            return api_error(VERIFICATION_CODE_INVALID, "Invalid or expired code.", status.HTTP_400_BAD_REQUEST)
 
         ver.used_at = timezone.now()
         ver.save(update_fields=['used_at'])
@@ -237,7 +244,7 @@ class ResendVerificationView(APIView):
             return Response({"detail": "If an account exists, a code has been sent."}, status=status.HTTP_200_OK)
 
         if user.is_email_verified:
-            return Response({"detail": "Email already verified."}, status=status.HTTP_400_BAD_REQUEST)
+            return api_error(EMAIL_ALREADY_VERIFIED, "Email already verified.", status.HTTP_400_BAD_REQUEST)
 
         ver, code = EmailVerification.create_for(user)
         transaction.on_commit(lambda: send_verification_email(user, code))
@@ -311,7 +318,7 @@ class PasswordResetConfirmView(APIView):
         try:
             user = User.objects.get(email__iexact=email)
         except User.DoesNotExist:
-            return Response({"detail": "Invalid or expired code."}, status=status.HTTP_400_BAD_REQUEST)
+            return api_error(RESET_CODE_INVALID, "Invalid or expired code.", status.HTTP_400_BAD_REQUEST)
 
         reset = PasswordReset.objects.filter(
             user=user,
@@ -321,12 +328,12 @@ class PasswordResetConfirmView(APIView):
         ).order_by('-created_at').first()
 
         if not reset:
-            return Response({"detail": "Invalid or expired code."}, status=status.HTTP_400_BAD_REQUEST)
+            return api_error(RESET_CODE_INVALID, "Invalid or expired code.", status.HTTP_400_BAD_REQUEST)
 
         if not reset.matches(code):
             reset.failed_attempts = F('failed_attempts') + 1
             reset.save(update_fields=['failed_attempts'])
-            return Response({"detail": "Invalid or expired code."}, status=status.HTTP_400_BAD_REQUEST)
+            return api_error(RESET_CODE_INVALID, "Invalid or expired code.", status.HTTP_400_BAD_REQUEST)
 
         matched_reset = reset
 
@@ -603,16 +610,15 @@ class SendFriendRequestView(generics.CreateAPIView):
     @transaction.atomic
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-        if serializer.is_valid():
-            friendship = serializer.save()
+        serializer.is_valid(raise_exception=True)
+        friendship = serializer.save()
 
-            emit_event('friend_request', actor=friendship.sender, recipient=friendship.receiver, friendship=friendship)
+        emit_event('friend_request', actor=friendship.sender, recipient=friendship.receiver, friendship=friendship)
 
-            return Response({
-                'message': 'Friend request sent successfully',
-                'friendship': FriendshipSerializer(friendship).data
-            }, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response({
+            'message': 'Friend request sent successfully',
+            'friendship': FriendshipSerializer(friendship).data
+        }, status=status.HTTP_201_CREATED)
 
 
 class CancelFriendRequestView(APIView):
@@ -628,10 +634,7 @@ class CancelFriendRequestView(APIView):
         ).first()
 
         if not friendship:
-            return Response(
-                {'detail': 'No outgoing pending request to this user.'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            return api_error(NO_PENDING_REQUEST, "No outgoing pending request to this user.", status.HTTP_404_NOT_FOUND)
 
         # Delete any pending unprocessed events for this friendship so the worker
         # doesn't create a notification after the friendship is gone.
@@ -657,10 +660,7 @@ class UnfriendView(APIView):
         ).first()
 
         if not friendship:
-            return Response(
-                {'detail': 'No accepted friendship found with this user.'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            return api_error(NOT_FRIENDS, "No accepted friendship found with this user.", status.HTTP_404_NOT_FOUND)
 
         friendship.delete()  # CASCADE removes any Notification group records for this friendship
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -692,7 +692,7 @@ class RespondToFriendRequestView(APIView):
                 'friendship': FriendshipSerializer(friendship).data
             })
 
-        return Response({'error': 'Invalid action'}, status=status.HTTP_400_BAD_REQUEST)
+        return api_error(INVALID_ACTION, "Invalid action.", status.HTTP_400_BAD_REQUEST)
 
 
 class BlockUserView(APIView):
@@ -705,10 +705,7 @@ class BlockUserView(APIView):
     def post(self, request, user_id):
         """Block a user."""
         if user_id == request.user.id:
-            return Response(
-                {'error': 'You cannot block yourself.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return api_error(CANNOT_BLOCK_SELF, "You cannot block yourself.", status.HTTP_400_BAD_REQUEST)
 
         target_user = get_object_or_404(User, id=user_id, is_active=True)
 
@@ -1060,10 +1057,7 @@ class RespondToQuoteView(APIView):
         # Validate the response value
         valid_responses = ['confirmed', 'denied', None]
         if response_value not in valid_responses:
-            return Response(
-                {'error': f'Invalid response. Must be one of: {valid_responses}'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return api_error(INVALID_QUOTE_RESPONSE, "Invalid response.", status.HTTP_400_BAD_REQUEST)
 
         quote.quoted_user_response = response_value
         quote.save(update_fields=['quoted_user_response'])
@@ -1301,17 +1295,11 @@ class QuoteAssignUserView(APIView):
 
         # Quote must currently have a quoted_name (not already assigned to a user)
         if quote.quoted_user is not None:
-            return Response(
-                {'detail': 'This quote already has a quoted user.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return api_error(QUOTE_ALREADY_HAS_USER, "This quote already has a quoted user.", status.HTTP_400_BAD_REQUEST)
 
         user_id = request.data.get('quoted_user_id')
         if not user_id:
-            return Response(
-                {'detail': 'quoted_user_id is required.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return api_error(FIELD_REQUIRED, "quoted_user_id is required.", status.HTTP_400_BAD_REQUEST)
 
         target_user = get_object_or_404(User, id=user_id, is_active=True)
 
@@ -1321,10 +1309,7 @@ class QuoteAssignUserView(APIView):
             Q(sender=target_user, receiver=request.user, status='accepted')
         ).exists()
         if not friendship_exists:
-            return Response(
-                {'detail': 'You can only assign a friend as the quoted user.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return api_error(NOT_FRIENDS, "You can only assign a friend as the quoted user.", status.HTTP_400_BAD_REQUEST)
 
         # Perform the swap
         quote.quoted_user = target_user
@@ -1396,7 +1381,7 @@ class DeviceTokenView(APIView):
     def post(self, request):
         token = request.data.get('token', '').strip()
         if not _EXPO_TOKEN_RE.match(token):
-            return Response({'detail': 'Invalid token format.'}, status=status.HTTP_400_BAD_REQUEST)
+            return api_error(INVALID_TOKEN_FORMAT, "Invalid token format.", status.HTTP_400_BAD_REQUEST)
 
         device_token, created = DeviceToken.objects.get_or_create(
             token=token,
@@ -1416,7 +1401,7 @@ class DeviceTokenView(APIView):
         token = request.data.get('token', '').strip()
         deleted, _ = DeviceToken.objects.filter(user=request.user, token=token).delete()
         if not deleted:
-            return Response({'detail': 'Token not found.'}, status=status.HTTP_404_NOT_FOUND)
+            return api_error(NOT_FOUND, "Token not found.", status.HTTP_404_NOT_FOUND)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -1615,7 +1600,7 @@ class RecentSearchView(APIView):
         # can actually see, preventing search-history pollution via ID guessing.
         if isinstance(target, User):
             if target.pk != user.pk and not user.get_friends().filter(pk=target.pk).exists():
-                return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+                return api_error(NOT_FOUND, "Not found.", status.HTTP_404_NOT_FOUND)
         else:  # Quote
             blocked_ids = user.get_all_blocked_user_ids()
             friends = user.get_friends().exclude(id__in=blocked_ids)
@@ -1627,7 +1612,7 @@ class RecentSearchView(APIView):
                 Q(author=user) | Q(quoted_user=user)
             ).exclude(author__id__in=blocked_ids).exclude(quoted_user__id__in=blocked_ids).exists()
             if not is_visible:
-                return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+                return api_error(NOT_FOUND, "Not found.", status.HTTP_404_NOT_FOUND)
 
         if isinstance(target, User):
             rec, created = RecentSearchItem.objects.select_for_update().get_or_create(
@@ -1661,9 +1646,9 @@ class RecentSearchView(APIView):
         kind = request.query_params.get("kind")
         target_id = request.query_params.get("target_id")
         if not kind or not target_id:
-            return Response({"detail": "Query parameters 'kind' and 'target_id' are required."}, status=status.HTTP_400_BAD_REQUEST)
+            return api_error(MISSING_PARAMETERS, "Query parameters 'kind' and 'target_id' are required.", status.HTTP_400_BAD_REQUEST)
         if kind not in ("user", "quote"):
-            return Response({"detail": "kind must be 'user' or 'quote'."}, status=status.HTTP_400_BAD_REQUEST)
+            return api_error(INVALID_PARAMETER, "kind must be 'user' or 'quote'.", status.HTTP_400_BAD_REQUEST)
 
         qs = RecentSearchItem.objects.filter(owner=request.user)
         if kind == "user":
@@ -1695,16 +1680,10 @@ class ReportQuoteView(APIView):
         quote = get_visible_quote_or_404(request.user, quote_id)
 
         if quote.author_id == request.user.id:
-            return Response(
-                {'detail': 'You cannot report your own quote.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return api_error(CANNOT_REPORT_SELF, "You cannot report your own quote.", status.HTTP_400_BAD_REQUEST)
 
         if Report.objects.filter(reporter=request.user, reported_quote=quote).exists():
-            return Response(
-                {'detail': 'You have already reported this quote.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return api_error(ALREADY_REPORTED, "You have already reported this quote.", status.HTTP_400_BAD_REQUEST)
 
         serializer = ReportRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -1760,10 +1739,7 @@ class ReportQuoteView(APIView):
         ).delete()
 
         if not deleted_count:
-            return Response(
-                {'detail': 'You have not reported this quote.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return api_error(REPORT_NOT_FOUND, "You have not reported this quote.", status.HTTP_400_BAD_REQUEST)
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -1786,16 +1762,10 @@ class ReportUserView(APIView):
         target = get_object_or_404(User, id=user_id, is_active=True)
 
         if target.id == request.user.id:
-            return Response(
-                {'detail': 'You cannot report yourself.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return api_error(CANNOT_REPORT_SELF, "You cannot report yourself.", status.HTTP_400_BAD_REQUEST)
 
         if Report.objects.filter(reporter=request.user, reported_user=target).exists():
-            return Response(
-                {'detail': 'You have already reported this user.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return api_error(ALREADY_REPORTED, "You have already reported this user.", status.HTTP_400_BAD_REQUEST)
 
         serializer = ReportRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -1841,9 +1811,6 @@ class ReportUserView(APIView):
         ).delete()
 
         if not deleted_count:
-            return Response(
-                {'detail': 'You have not reported this user.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return api_error(REPORT_NOT_FOUND, "You have not reported this user.", status.HTTP_400_BAD_REQUEST)
 
         return Response(status=status.HTTP_204_NO_CONTENT)

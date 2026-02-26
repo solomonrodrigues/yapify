@@ -44,7 +44,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         if attrs['password'] != attrs['password_confirm']:
-            raise serializers.ValidationError("Passwords don't match")
+            raise serializers.ValidationError("Passwords don't match", code='passwords_do_not_match')
         return attrs
 
     def create(self, validated_data):
@@ -74,7 +74,9 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         if attrs['new_password'] != attrs['new_password_confirm']:
-            raise serializers.ValidationError({"new_password_confirm": "Passwords don't match"})
+            raise serializers.ValidationError({
+                "new_password_confirm": serializers.ErrorDetail("Passwords don't match", code='passwords_do_not_match')
+            })
         return attrs
 
 
@@ -175,19 +177,19 @@ class QuoteGuessSerializer(serializers.ModelSerializer):
             or (quote.quoted_user_id and friends.filter(id=quote.quoted_user_id).exists())
         )
         if not is_visible:
-            raise serializers.ValidationError("Quote not found.")
+            raise serializers.ValidationError("Quote not found.", code='not_found')
 
         # Prevent duplicate guesses
         if QuoteGuess.objects.filter(user=user, quote=quote).exists():
-            raise serializers.ValidationError("You have already guessed on this quote.")
+            raise serializers.ValidationError("You have already guessed on this quote.", code='already_guessed')
 
         # Prevent author from guessing their own quote
         if quote.author_id == user.id:
-            raise serializers.ValidationError("You cannot guess on a quote you posted.")
+            raise serializers.ValidationError("You cannot guess on a quote you posted.", code='cannot_guess_own_quote')
 
         # Prevent quoted user from guessing (they know the answer)
         if quote.quoted_user_id == user.id:
-            raise serializers.ValidationError("You cannot guess on a quote about yourself.")
+            raise serializers.ValidationError("You cannot guess on a quote about yourself.", code='cannot_guess_self')
 
         # enforce skip limit
         if data.get("skipped"):
@@ -201,7 +203,8 @@ class QuoteGuessSerializer(serializers.ModelSerializer):
             ).count()
             if skips_this_week >= settings.QUOTE_GUESS_MAX_SKIPS_PER_WEEK:
                 raise serializers.ValidationError(
-                    f"You can only skip {settings.QUOTE_GUESS_MAX_SKIPS_PER_WEEK} times per week."
+                    f"You can only skip {settings.QUOTE_GUESS_MAX_SKIPS_PER_WEEK} times per week.",
+                    code='skip_limit_exceeded',
                 )
 
         return data
@@ -644,13 +647,13 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                                 username=email.lower(), password=password)
 
             if not user:
-                raise serializers.ValidationError('Invalid credentials')
+                raise serializers.ValidationError('Invalid credentials', code='invalid_credentials')
 
             if not user.is_active:
-                raise serializers.ValidationError('User account is disabled')
+                raise serializers.ValidationError('User account is disabled', code='account_disabled')
 
             if not user.is_email_verified:
-                raise serializers.ValidationError('Email not verified')
+                raise serializers.ValidationError('Email not verified', code='email_not_verified')
 
             refresh = self.get_token(user)
 
@@ -660,7 +663,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                 'user': UserSerializer(user).data
             }
 
-        raise serializers.ValidationError('Must include email and password')
+        raise serializers.ValidationError('Must include email and password', code='missing_credentials')
 
 
 KIND_CHOICES = (("user", "user"), ("quote", "quote"))
@@ -678,12 +681,16 @@ class RecentSearchCreateSerializer(serializers.Serializer):
             try:
                 attrs["_target"] = User.objects.get(pk=tid)
             except User.DoesNotExist:
-                raise serializers.ValidationError({"target_id": "User not found."})
+                raise serializers.ValidationError(
+                    {"target_id": serializers.ErrorDetail("User not found.", code='not_found')}
+                )
         else:
             try:
                 attrs["_target"] = Quote.objects.get(pk=tid)
             except Quote.DoesNotExist:
-                raise serializers.ValidationError({"target_id": "Quote not found."})
+                raise serializers.ValidationError(
+                    {"target_id": serializers.ErrorDetail("Quote not found.", code='not_found')}
+                )
         return attrs
 
 
@@ -716,9 +723,11 @@ class ReportRequestSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         if attrs.get('reason') == ReportReason.OTHER and not attrs.get('description'):
-            raise serializers.ValidationError(
-                {"description": "Description is required when reason is 'other'."}
-            )
+            raise serializers.ValidationError({
+                "description": serializers.ErrorDetail(
+                    "Description is required when reason is 'other'.", code='required'
+                )
+            })
         return attrs
 
 
