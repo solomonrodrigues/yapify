@@ -1817,3 +1817,37 @@ class ReportUserView(APIView):
             return api_error(REPORT_NOT_FOUND, "You have not reported this user.", status.HTTP_400_BAD_REQUEST)
 
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class DeleteAccountView(APIView):
+    """
+    Permanently delete the authenticated user's account.
+
+    Quotes posted by friends where this user is the quoted_user are preserved —
+    their display_name is snapshotted into quoted_name so the quote remains
+    readable. All other data (authored quotes, friendships, notifications,
+    device tokens, etc.) is hard-deleted via CASCADE.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(
+        summary="Delete account",
+        description=(
+            "Permanently deletes the authenticated user's account and all associated data. "
+            "Quotes posted by friends where this user appears as the quoted user are preserved "
+            "with their display name snapshotted, so friends' content is not lost."
+        ),
+        responses={204: OpenApiResponse(description="Account deleted")},
+        tags=["auth"],
+    )
+    @transaction.atomic
+    def delete(self, request):
+        user = request.user
+        # Snapshot the display_name onto any quotes where this user is the
+        # quoted_user before the FK is nulled, so the quote stays meaningful.
+        Quote.objects.filter(quoted_user=user).update(
+            quoted_name=user.display_name,
+            quoted_user=None,
+        )
+        user.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

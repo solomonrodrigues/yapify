@@ -260,7 +260,7 @@ class Quote(models.Model):
     )
     quoted_user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         related_name='quotes_about_me',
         null=True,
         blank=True,
@@ -564,7 +564,8 @@ class RecentSearchItem(models.Model):
 class Report(models.Model):
     reporter = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
         related_name='submitted_reports',
     )
     reason = models.CharField(max_length=20, choices=ReportReason.choices)
