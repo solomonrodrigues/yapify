@@ -138,11 +138,19 @@ class FriendRequestSerializer(serializers.ModelSerializer):
         fields = ('receiver_id',)
 
     def create(self, validated_data):
+        sender = self.context['request'].user
         receiver = validated_data['receiver_id']
-        friendship = Friendship.objects.create(
-            sender=self.context['request'].user,
-            receiver=receiver
-        )
+
+        # Clear any stale rejected row in either direction so a fresh request
+        # can be sent. Only rejected rows are removed — pending/accepted/blocked
+        # rows remain and will still fail Friendship.clean() as expected.
+        Friendship.objects.filter(
+            Q(sender=sender, receiver=receiver) |
+            Q(sender=receiver, receiver=sender),
+            status='rejected',
+        ).delete()
+
+        friendship = Friendship.objects.create(sender=sender, receiver=receiver)
         return friendship
 
 
