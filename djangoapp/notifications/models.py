@@ -49,6 +49,7 @@ class Notification(models.Model):
         unique_together = [('recipient', 'notification_type', 'quote', 'friendship')]
         ordering = ['-last_event_at']
         indexes = [
+            models.Index(fields=['recipient']),
             models.Index(fields=['recipient', 'is_read', 'last_event_at']),
         ]
 
