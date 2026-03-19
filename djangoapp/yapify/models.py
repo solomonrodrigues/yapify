@@ -81,14 +81,14 @@ class User(AbstractUser):
         return User.objects.filter(
             received_friendships__sender=self,
             received_friendships__status='blocked'
-        )
+        ).distinct()
 
     def get_blocked_by_users(self):
         """Return users who have blocked this user."""
         return User.objects.filter(
             sent_friendships__receiver=self,
             sent_friendships__status='blocked'
-        )
+        ).distinct()
 
     def get_all_blocked_user_ids(self):
         """Return IDs of users blocked by or blocking this user (for filtering).
