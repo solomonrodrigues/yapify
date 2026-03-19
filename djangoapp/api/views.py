@@ -222,6 +222,12 @@ class VerifyEmailView(APIView):
             user.is_email_verified = True
             user.save(update_fields=['is_email_verified'])
 
+        # NOTE: We do not blacklist pre-existing refresh tokens here. Currently
+        # this is safe because tokens are only ever issued *after* successful
+        # verification (this response). If a future code path issues tokens
+        # before verification (e.g. social login, admin-created accounts), this
+        # should blacklist outstanding tokens before issuing fresh ones —
+        # mirroring the pattern in PasswordResetConfirmView.
         refresh = RefreshToken.for_user(user)
         return Response({
             "detail": "Email verified.",
