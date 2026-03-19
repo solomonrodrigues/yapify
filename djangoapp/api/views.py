@@ -53,6 +53,8 @@ from .error_codes import (
     INVALID_TOKEN_FORMAT, NOT_FOUND, MISSING_PARAMETERS, INVALID_PARAMETER,
 )
 
+THROTTLE_SCOPE_AUTH = 'auth'
+
 
 def get_optimized_quote_queryset(queryset, user):
     """Apply annotations and prefetches to avoid N+1 queries on QuoteSerializer."""
@@ -161,7 +163,7 @@ class RegisterView(generics.CreateAPIView):
     serializer_class = UserRegistrationSerializer
     permission_classes = [permissions.AllowAny]
     throttle_classes = [ScopedRateThrottle]
-    throttle_scope = 'auth'
+    throttle_scope = THROTTLE_SCOPE_AUTH
 
     @transaction.atomic
     def post(self, request, *args, **kwargs):
@@ -192,7 +194,7 @@ class RegisterView(generics.CreateAPIView):
 class VerifyEmailView(APIView):
     permission_classes = [permissions.AllowAny]
     throttle_classes = [ScopedRateThrottle]
-    throttle_scope = 'auth'
+    throttle_scope = THROTTLE_SCOPE_AUTH
 
     def post(self, request):
         s = VerifyEmailSerializer(data=request.data)
@@ -239,7 +241,7 @@ class VerifyEmailView(APIView):
 class ResendVerificationView(APIView):
     permission_classes = [permissions.AllowAny]
     throttle_classes = [ScopedRateThrottle]
-    throttle_scope = 'auth'
+    throttle_scope = THROTTLE_SCOPE_AUTH
 
     def post(self, request):
         s = ResendVerificationSerializer(data=request.data)
@@ -270,7 +272,7 @@ class ResendVerificationView(APIView):
 class PasswordResetRequestView(APIView):
     permission_classes = [permissions.AllowAny]
     throttle_classes = [ScopedRateThrottle]
-    throttle_scope = 'auth'
+    throttle_scope = THROTTLE_SCOPE_AUTH
 
     def post(self, request):
         s = PasswordResetRequestSerializer(data=request.data)
@@ -313,7 +315,7 @@ class PasswordResetRequestView(APIView):
 class PasswordResetConfirmView(APIView):
     permission_classes = [permissions.AllowAny]
     throttle_classes = [ScopedRateThrottle]
-    throttle_scope = 'auth'
+    throttle_scope = THROTTLE_SCOPE_AUTH
 
     def post(self, request):
         s = PasswordResetConfirmSerializer(data=request.data)
@@ -369,7 +371,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     """Custom JWT login endpoint"""
     serializer_class = CustomTokenObtainPairSerializer
     throttle_classes = [ScopedRateThrottle]
-    throttle_scope = 'auth'
+    throttle_scope = THROTTLE_SCOPE_AUTH
 
 
 class ProfileView(generics.RetrieveUpdateAPIView):
