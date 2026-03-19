@@ -623,6 +623,10 @@ class Report(models.Model):
         if self.reported_user_id and self.reported_user_id == self.reporter_id:
             raise ValidationError("You cannot report yourself.")
 
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
     def __str__(self):
         if self.reported_quote_id:
             return f"Report #{self.id} by {self.reporter_id} on quote #{self.reported_quote_id}"
