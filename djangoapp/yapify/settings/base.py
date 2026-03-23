@@ -38,6 +38,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
+    'djangoapp.yapify.middleware.AppVersionMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -230,6 +231,12 @@ UNFOLD = {
                 "title": "Moderation",
                 "items": [
                     {"title": "Reports", "link": "/admin/yapify/report/", "icon": "flag"},
+                ],
+            },
+            {
+                "title": "Configuration",
+                "items": [
+                    {"title": "App Version Config", "link": "/admin/yapify/appversionconfig/", "icon": "system_update"},
                 ],
             },
             {

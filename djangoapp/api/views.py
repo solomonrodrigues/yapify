@@ -1827,6 +1827,20 @@ class ReportUserView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+class AppConfigView(APIView):
+    """Public endpoint returning the minimum supported app version and store URLs."""
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        from djangoapp.yapify.models import AppVersionConfig
+        config = AppVersionConfig.get_current()
+        return Response({
+            'minimum_version': config.minimum_version,
+            'ios_store_url': config.ios_store_url,
+            'android_store_url': config.android_store_url,
+        })
+
+
 class DeleteAccountView(APIView):
     """
     Permanently delete the authenticated user's account.

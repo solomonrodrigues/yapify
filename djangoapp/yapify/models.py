@@ -631,3 +631,26 @@ class Report(models.Model):
         if self.reported_quote_id:
             return f"Report #{self.id} by {self.reporter_id} on quote #{self.reported_quote_id}"
         return f"Report #{self.id} by {self.reporter_id} on user #{self.reported_user_id}"
+
+
+class AppVersionConfig(models.Model):
+    """Singleton. Edit via admin — no deployment required to change minimum version."""
+    minimum_version   = models.CharField(max_length=20)        # e.g. "1.2.0" — applies to both platforms
+    ios_store_url     = models.URLField(blank=True)             # App Store URL (iOS)
+    android_store_url = models.URLField(blank=True)             # Google Play URL (Android)
+    updated_at        = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        self.pk = 1  # enforce singleton
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def get_current(cls):
+        obj, _ = cls.objects.get_or_create(
+            pk=1,
+            defaults={'minimum_version': '1.0.0', 'ios_store_url': '', 'android_store_url': ''}
+        )
+        return obj
+
+    class Meta:
+        verbose_name = 'App Version Config'

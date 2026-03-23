@@ -29,6 +29,9 @@ REPORT_NOT_FOUND = "REPORT_NOT_FOUND"
 # ── Devices ───────────────────────────────────────────────────────────────────
 INVALID_TOKEN_FORMAT = "INVALID_TOKEN_FORMAT"
 
+# ── App Version ───────────────────────────────────────────────────────────────
+UPDATE_REQUIRED = "UPDATE_REQUIRED"
+
 # ── General ───────────────────────────────────────────────────────────────────
 NOT_FOUND = "NOT_FOUND"
 VALIDATION_ERROR = "VALIDATION_ERROR"

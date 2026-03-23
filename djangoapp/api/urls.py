@@ -6,6 +6,9 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView
 
 
 urlpatterns = [
+    # App config (public — version check + store URLs)
+    path('config/', views.AppConfigView.as_view(), name='app-config'),
+
     # OpenAPI Schema download
     path('schema/', SpectacularAPIView.as_view(), name='schema'),
     # Redoc UI

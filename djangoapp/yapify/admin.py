@@ -14,7 +14,7 @@ from post_office.models import Email as PostOfficeEmail, Log as PostOfficeLog, \
     EmailTemplate as PostOfficeEmailTemplate, Attachment as PostOfficeAttachment
 from .models import (
     User, Friendship, Quote, QuoteWitness, QuoteLike, EmailVerification, QuoteGuess,
-    SavedQuote, HiddenQuote, RecentSearchItem, Report,
+    SavedQuote, HiddenQuote, RecentSearchItem, Report, AppVersionConfig,
 )
 
 
@@ -344,6 +344,18 @@ class ReportAdmin(UnfoldModelAdmin):
             return f'{snapshot.get("username", "?")} [deleted]'
         return "-"
     target_display.short_description = "Target"
+
+
+@admin.register(AppVersionConfig)
+class AppVersionConfigAdmin(UnfoldModelAdmin):
+    list_display = ('minimum_version', 'ios_store_url', 'android_store_url', 'updated_at')
+    readonly_fields = ('updated_at',)
+
+    def has_add_permission(self, request):
+        return not AppVersionConfig.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 # ── django-post-office ────────────────────────────────────────────────────────
