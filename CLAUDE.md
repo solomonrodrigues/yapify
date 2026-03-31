@@ -8,10 +8,21 @@ Yapify is a Django REST Framework backend for a mobile quote-sharing social netw
 
 **Stack:** Python 3.13, Django 6.0, Django REST Framework, PostgreSQL, JWT authentication
 
+## Local Development (Docker)
+
+```bash
+cp .env.example .env  # first time only — fill in real values
+docker compose up --build
+```
+
+The container runs migrations, builds Tailwind CSS, starts a Tailwind watcher, then launches the Django dev server on `http://localhost:8000`. Tailwind output is written to `djangoapp/static/css/output.css` (gitignored).
+
+Uses `djangoapp.yapify.settings.local` — PostgreSQL via `DATABASE_URL`, no email sending, simple static file storage (no `collectstatic` needed).
+
 ## Common Commands
 
 ```bash
-# Development server
+# Development server (without Docker)
 python manage.py runserver
 
 # Database migrations
