@@ -11,7 +11,7 @@
     "tailwind": {
       "inputs": [
         {"step": "install"},
-        {"local": true, "include": ["djangoapp/static", "djangoapp/templates"]}
+        {"local": true}
       ],
       "commands": [
         "tailwindcss -i ./djangoapp/static/css/input.css -o ./djangoapp/static/css/output.css --minify"
