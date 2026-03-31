@@ -18,12 +18,15 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 
-from djangoapp.yapify.views import invite_view
+from djangoapp.yapify.views import invite_view, LandingView, PrivacyView, TermsView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('djangoapp.api.urls')),
+    path('', LandingView.as_view(), name='landing'),
     path('invite/<str:username>/', invite_view, name='invite'),
+    path('privacy/', PrivacyView.as_view(), name='privacy'),
+    path('terms/', TermsView.as_view(), name='terms'),
 ]
 
 if settings.DEBUG:

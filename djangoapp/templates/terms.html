@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}Terms &amp; Conditions — Yapify{% endblock %}
+
+{% block extra_style %}
+  h1 {
+    font-size: clamp(2rem, 7vw, 2.8rem);
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    margin-bottom: 0.5rem;
+  }
+
+  .effective-date {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin-bottom: 3rem;
+  }
+
+  section { margin-bottom: 2.5rem; }
+
+  h2 {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    opacity: 0.9;
+    margin-bottom: 0.875rem;
+  }
+
+  p {
+    font-size: 1.05rem;
+    color: var(--ink-muted);
+    line-height: 1.7;
+    margin-bottom: 0.875rem;
+  }
+
+  p:last-child { margin-bottom: 0; }
+
+  ul {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 0.875rem;
+  }
+
+  li {
+    font-size: 1.05rem;
+    color: var(--ink-muted);
+    line-height: 1.6;
+    padding-left: 1.25rem;
+    position: relative;
+  }
+
+  li::before {
+    content: '—';
+    position: absolute;
+    left: 0;
+    color: var(--ink-faint);
+  }
+
+  a {
+    color: var(--ink);
+    text-decoration: underline;
+    text-decoration-color: var(--ink-faint);
+  }
+
+  a:hover { text-decoration-color: var(--ink-muted); }
+{% endblock %}
+
+{% block content %}
+  <h1>Terms &amp; Conditions</h1>
+  <p class="effective-date">Effective 1 April 2026</p>
+
+  <section>
+    <p>These terms and conditions apply to the Yapify app for mobile devices, created by Solomon Rodrigues as a free service. Upon downloading or utilizing the Application, you are automatically agreeing to the following terms. It is strongly advised that you thoroughly read and understand these terms prior to using the Application.</p>
+  </section>
+
+  <section>
+    <h2>Intellectual Property</h2>
+    <p>Unauthorized copying or modification of the Application, any part of the Application, or our trademarks is strictly prohibited. Any attempts to extract the source code of the Application, translate the Application into other languages, or create derivative versions are not permitted. All trademarks, copyrights, database rights, and other intellectual property rights related to the Application remain the property of the Service Provider.</p>
+  </section>
+
+  <section>
+    <h2>Changes to the Service</h2>
+    <p>The Service Provider reserves the right to modify the Application or charge for services at any time and for any reason. Any charges for the Application or its services will be clearly communicated to you.</p>
+  </section>
+
+  <section>
+    <h2>Your Responsibilities</h2>
+    <p>The Application stores and processes personal data that you have provided in order to provide the Service. It is your responsibility to maintain the security of your phone and access to the Application. The Service Provider strongly advises against jailbreaking or rooting your phone, as such actions could expose your phone to security risks and may result in the Application not functioning correctly or at all.</p>
+  </section>
+
+  <section>
+    <h2>Third Party Services</h2>
+    <p>The Application utilizes third-party services that have their own Terms and Conditions:</p>
+    <ul>
+      <li><a href="https://expo.io/terms" target="_blank" rel="noopener noreferrer">Expo</a></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Internet Connection</h2>
+    <p>Some functions of the Application require an active internet connection. The Service Provider cannot be held responsible if the Application does not function at full capacity due to lack of Wi-Fi access or if you have exhausted your data allowance.</p>
+    <p>If you are using the application outside of a Wi-Fi area, your mobile network provider's agreement terms still apply. You may incur charges from your mobile provider for data usage, including roaming data charges if you use the application outside of your home territory. By using the application, you accept responsibility for any such charges.</p>
+  </section>
+
+  <section>
+    <h2>Limitation of Liability</h2>
+    <p>The Service Provider accepts no liability for any loss, direct or indirect, that you experience as a result of relying on this Application. The Service Provider may terminate the Application at any time without notice. Upon termination, the rights and licenses granted to you will end and you must cease using the application.</p>
+  </section>
+
+  <section>
+    <h2>Changes to These Terms and Conditions</h2>
+    <p>The Service Provider may periodically update these Terms and Conditions. You are advised to review this page regularly for any changes. Changes are effective immediately upon posting.</p>
+    <p>These terms and conditions are effective as of 1 April 2026.</p>
+  </section>
+
+  <section>
+    <h2>Contact Us</h2>
+    <p>If you have any questions or suggestions about the Terms and Conditions, please contact us at <a href="mailto:support@yapify.net">support@yapify.net</a>.</p>
+  </section>
+{% endblock %}

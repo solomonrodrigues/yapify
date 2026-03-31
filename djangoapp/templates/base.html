@@ -1,0 +1,32 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Yapify{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{% static 'css/output.css' %}" />
+  <style>
+    :root { --accent: {% block accent %}#39C5BB{% endblock %}; }
+    .page { max-width: {% block page_max_width %}640px{% endblock %}; }
+    {% block extra_style %}{% endblock %}
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <div class="masthead">
+      <a href="/" class="masthead-name">Yapify</a>
+      {% block masthead_right %}{% endblock %}
+    </div>
+
+    {% block content %}{% endblock %}
+
+    <footer>{% block footer %}yapify &middot; <a href="/privacy/">privacy policy</a> &middot; <a href="/terms/">terms of service</a>{% endblock %}</footer>
+
+  </div>
+</body>
+</html>

@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}Privacy Policy — Yapify{% endblock %}
+
+{% block extra_style %}
+  h1 {
+    font-size: clamp(2rem, 7vw, 2.8rem);
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    margin-bottom: 0.5rem;
+  }
+
+  .effective-date {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin-bottom: 3rem;
+  }
+
+  section { margin-bottom: 2.5rem; }
+
+  h2 {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    opacity: 0.9;
+    margin-bottom: 0.875rem;
+  }
+
+  p {
+    font-size: 1.05rem;
+    color: var(--ink-muted);
+    line-height: 1.7;
+    margin-bottom: 0.875rem;
+  }
+
+  p:last-child { margin-bottom: 0; }
+
+  ul {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 0.875rem;
+  }
+
+  li {
+    font-size: 1.05rem;
+    color: var(--ink-muted);
+    line-height: 1.6;
+    padding-left: 1.25rem;
+    position: relative;
+  }
+
+  li::before {
+    content: '—';
+    position: absolute;
+    left: 0;
+    color: var(--ink-faint);
+  }
+
+  a {
+    color: var(--ink);
+    text-decoration: underline;
+    text-decoration-color: var(--ink-faint);
+  }
+
+  a:hover { text-decoration-color: var(--ink-muted); }
+{% endblock %}
+
+{% block content %}
+  <h1>Privacy Policy</h1>
+  <p class="effective-date">Effective 1 April 2026</p>
+
+  <section>
+    <h2>Information Collection and Use</h2>
+    <p>This privacy policy applies to the Yapify app for mobile devices, created by Solomon Rodrigues as a free service. This service is intended for use "AS IS".</p>
+    <p>The Application collects information when you download and use it. This information may include:</p>
+    <ul>
+      <li>Your device's Internet Protocol address (e.g. IP address)</li>
+      <li>The pages of the Application that you visit, the time and date of your visit, the time spent on those pages</li>
+      <li>The time spent on the Application</li>
+      <li>The operating system you use on your mobile device</li>
+    </ul>
+    <p>The Application does not gather precise information about the location of your mobile device.</p>
+    <p>The Application does not use Artificial Intelligence (AI) technologies to process your data or provide features.</p>
+    <p>For a better experience, while using the Application, you may be required to provide certain personally identifiable information, including but not limited to: email address, username, display name, profile color, biography, quotes posted by users, names attributed to quoted persons, friend connections, quote likes, quote witnesses, quote guesses, saved quotes, push notification device tokens, and account creation date. This information will be retained and used as described in this privacy policy.</p>
+  </section>
+
+  <section>
+    <h2>Third Party Access</h2>
+    <p>Only aggregated, anonymized data is periodically transmitted to external services to aid in improving the Application. Your information may be shared with third parties in the ways described in this privacy statement.</p>
+    <p>The Application utilizes third-party services that have their own Privacy Policy about handling data:</p>
+    <ul>
+      <li><a href="https://expo.io/privacy" target="_blank" rel="noopener noreferrer">Expo</a></li>
+    </ul>
+    <p>Your information may be disclosed:</p>
+    <ul>
+      <li>as required by law, such as to comply with a subpoena or similar legal process</li>
+      <li>when necessary to protect rights, safety, or to investigate fraud or respond to a government request</li>
+      <li>with trusted service providers who work on our behalf, do not have an independent use of the information, and have agreed to adhere to the rules set forth in this privacy statement</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Opt-Out Rights</h2>
+    <p>You can stop all collection of information by the Application by uninstalling it. You may use the standard uninstall processes available as part of your mobile device or via the mobile application marketplace.</p>
+  </section>
+
+  <section>
+    <h2>Data Retention Policy</h2>
+    <p>User provided data will be retained for as long as you use the Application and for a reasonable time thereafter. If you'd like your data deleted, please contact us at <a href="mailto:support@yapify.net">support@yapify.net</a> and we will respond in a reasonable time.</p>
+  </section>
+
+  <section>
+    <h2>Children</h2>
+    <p>The Application does not address anyone under the age of 13. We do not knowingly collect personally identifiable information from children under 13 years of age. If you are a parent or guardian and you are aware that your child has provided us with personal information, please contact us at <a href="mailto:support@yapify.net">support@yapify.net</a> so that we can take the necessary actions.</p>
+  </section>
+
+  <section>
+    <h2>Security</h2>
+    <p>We are concerned about safeguarding the confidentiality of your information and provide physical, electronic, and procedural safeguards to protect information we process and maintain.</p>
+  </section>
+
+  <section>
+    <h2>Changes</h2>
+    <p>This Privacy Policy may be updated from time to time. You will be notified of any changes by the updating of this page. You are advised to consult this Privacy Policy regularly for any changes, as continued use is deemed approval of all changes.</p>
+    <p>This privacy policy is effective as of 1 April 2026.</p>
+  </section>
+
+  <section>
+    <h2>Contact Us</h2>
+    <p>If you have any questions regarding privacy while using the Application, please contact us at <a href="mailto:support@yapify.net">support@yapify.net</a>.</p>
+  </section>
+{% endblock %}

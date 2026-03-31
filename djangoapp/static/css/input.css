@@ -1,0 +1,103 @@
+@import "tailwindcss";
+@source "../../templates/**/*.html";
+
+@theme {
+  --color-paper: #0e1113;
+  --color-card: #181c1f;
+  --color-border: #272727;
+  --color-ink: #ECEDEE;
+  --color-ink-muted: #aaa;
+  --color-ink-faint: #3a3a3a;
+  --color-teal: #39C5BB;
+  --color-teal-dark: #2aada3;
+
+  --font-display: "Inter", system-ui, sans-serif;
+  --font-mono: "DM Mono", monospace;
+}
+
+/* ── Reset ── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Base ── */
+html { height: 100%; }
+
+body {
+  font-family: var(--font-display);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  min-height: 100dvh;
+  padding: 3rem 1.75rem 5rem;
+}
+
+/* Grain overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.6;
+}
+
+/* ── Page wrapper ── */
+.page {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* ── Masthead ── */
+.masthead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 3rem;
+}
+
+.masthead-name {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+  text-decoration: none;
+}
+
+.masthead-name:hover { color: var(--color-ink); }
+
+/* ── Footer ── */
+footer {
+  border-top: 1px solid var(--color-border);
+  padding-top: 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  color: var(--color-ink-faint);
+}
+
+footer a {
+  color: var(--color-ink-faint);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+footer a:hover { color: var(--color-ink-muted); }
+
+/* ── Animation ── */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-rise {
+  opacity: 0;
+  animation: rise 0.7s ease forwards;
+}

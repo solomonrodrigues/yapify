@@ -1,4 +1,5 @@
 from django.shortcuts import get_object_or_404, render
+from django.views.generic import TemplateView
 
 from djangoapp.yapify.models import User
 
@@ -17,6 +18,18 @@ _PROFILE_COLOR_HEX = {
     'CYAN': '#06b6d4',
     'MAGENTA': '#d946ef',
 }
+
+
+class LandingView(TemplateView):
+    template_name = 'landing.html'
+
+
+class PrivacyView(TemplateView):
+    template_name = 'privacy.html'
+
+
+class TermsView(TemplateView):
+    template_name = 'terms.html'
 
 
 def invite_view(request, username):
