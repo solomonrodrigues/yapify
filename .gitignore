@@ -8,4 +8,3 @@ djangoapp/api/__pycache__
 djangoapp/api/migrations/__pycache__
 __pycache__/
 *.py[cod]
-djangoapp/static/css/output.css
