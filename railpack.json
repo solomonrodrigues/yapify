@@ -1,0 +1,13 @@
+{
+  "$schema": "https://schema.railpack.com",
+  "steps": {
+    "install": {
+      "commands": [
+        "...",
+        "curl -fsSL https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-linux-x64 -o /usr/local/bin/tailwindcss",
+        "chmod +x /usr/local/bin/tailwindcss",
+        "tailwindcss -i ./djangoapp/static/css/input.css -o ./djangoapp/static/css/output.css --minify"
+      ]
+    }
+  }
+}
