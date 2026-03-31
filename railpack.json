@@ -16,7 +16,7 @@
       "commands": [
         "tailwindcss -i ./djangoapp/static/css/input.css -o ./djangoapp/static/css/output.css --minify"
       ],
-      "deployOutputs": {"include": ["djangoapp/static/css/output.css"]}
+      "deployOutputs": [{"include": ["djangoapp/static/css/output.css"]}]
     }
   }
 }
