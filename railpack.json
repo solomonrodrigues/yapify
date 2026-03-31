@@ -5,9 +5,18 @@
       "commands": [
         "...",
         "curl -fsSL https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-linux-x64 -o /usr/local/bin/tailwindcss",
-        "chmod +x /usr/local/bin/tailwindcss",
-        "tailwindcss -i ./djangoapp/static/css/input.css -o ./djangoapp/static/css/output.css --minify"
+        "chmod +x /usr/local/bin/tailwindcss"
       ]
+    },
+    "tailwind": {
+      "inputs": [
+        {"step": "install"},
+        {"local": true, "include": ["djangoapp/static", "djangoapp/templates"]}
+      ],
+      "commands": [
+        "tailwindcss -i ./djangoapp/static/css/input.css -o ./djangoapp/static/css/output.css --minify"
+      ],
+      "deployOutputs": ["djangoapp/static/css/output.css"]
     }
   }
 }
