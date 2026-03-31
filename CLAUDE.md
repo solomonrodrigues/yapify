@@ -79,6 +79,12 @@ Three-tier settings structure: `base.py` → `development.py`/`production.py`
 - Development: SQLite database, debug toolbar enabled
 - Production: PostgreSQL via `DATABASE_URL`, Sentry error tracking, WhiteNoise for static files
 
+## Email Infrastructure
+
+- **Sending:** Mailgun via `django-anymail`. Outbound emails (verification, password reset) send from `donotreply@mail.yapify.net`. Configured via `MAILGUN_API_KEY` env var in Railway.
+- **Receiving:** `support@yapify.net` is handled by Cloudflare Email Routing, which forwards inbound mail to `yapifyapp@gmail.com`. There is no mailbox on the server — all support email lands in Gmail.
+- **DNS:** Mailgun operates on the `mail.yapify.net` subdomain (SPF, DKIM, MX for sending). Cloudflare Email Routing adds MX records on the root `yapify.net` domain for receiving. They don't conflict.
+
 ## Hosting & Deployment
 
 - **Platform:** Railway
