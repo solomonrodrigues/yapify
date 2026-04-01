@@ -7,9 +7,10 @@
   --color-border: #272727;
   --color-ink: #ECEDEE;
   --color-ink-muted: #aaa;
-  --color-ink-faint: #3a3a3a;
+  --color-ink-faint: #666;
   --color-teal: #39C5BB;
   --color-teal-dark: #2aada3;
+  --color-magenta: #E8416A;
 
   --font-display: "Inter", system-ui, sans-serif;
   --font-mono: "DM Mono", monospace;
@@ -63,15 +64,16 @@ body::before {
 }
 
 .masthead-name {
-  font-family: var(--font-mono);
-  font-size: 0.65rem;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--color-ink-muted);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-ink);
   text-decoration: none;
+  transition: opacity 0.15s ease;
 }
 
-.masthead-name:hover { color: var(--color-ink); }
+.masthead-name:hover { opacity: 0.7; }
 
 /* ── Footer ── */
 footer {
