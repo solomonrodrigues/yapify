@@ -263,14 +263,18 @@ class QuoteGuessListItemSerializer(serializers.ModelSerializer):
         if current_user.id == guesser.id:
             return "self"
 
+        # Use prefetched data attached by QuoteGuessesListView
+        sent = getattr(guesser, '_friendship_with_requester_sent', None)
+        received = getattr(guesser, '_friendship_with_requester_received', None)
+        if sent is not None and received is not None:
+            matches = list(sent) + list(received)
+            return matches[0].status if matches else None
+
         friendship = Friendship.objects.filter(
             Q(sender=current_user, receiver=guesser) |
             Q(sender=guesser, receiver=current_user)
         ).first()
-
-        if friendship:
-            return friendship.status
-        return None
+        return friendship.status if friendship else None
 
 
 class MinimalQuoteSerializer(serializers.ModelSerializer):

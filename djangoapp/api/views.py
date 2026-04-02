@@ -513,7 +513,7 @@ class UserFriendsListView(generics.ListAPIView):
         return get_optimized_user_queryset(friends_queryset, current_user=self.request.user)
 
 
-class UserDetailView(generics.RetrieveAPIView):
+class UserDetailView(OptimizedQuoteViewMixin, generics.RetrieveAPIView):
     """Retrieve public details about any user"""
     serializer_class = PublicUserSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -634,7 +634,7 @@ class FriendRequestListView(generics.ListAPIView):
     pagination_class = StandardResultsPagination
 
     def get_queryset(self):
-        return self.request.user.get_pending_friend_requests()
+        return self.request.user.get_pending_friend_requests().select_related('sender', 'receiver')
 
 
 @extend_schema(
@@ -1151,9 +1151,12 @@ class RespondToQuoteView(APIView):
         quote.quoted_user_response = response_value
         quote.save(update_fields=['quoted_user_response'])
 
+        optimized_quote = get_optimized_quote_queryset(
+            Quote.objects.filter(pk=quote.pk), request.user
+        ).first()
         return Response({
             'message': 'Quote response updated.',
-            'quote': QuoteSerializer(quote, context={'request': request}).data
+            'quote': QuoteSerializer(optimized_quote, context={'request': request}).data
         })
 
 
@@ -1434,8 +1437,11 @@ class QuoteAssignUserView(APIView):
         if target_user != request.user:
             emit_event('new_quote', actor=request.user, recipient=target_user, quote=quote)
 
+        optimized_quote = get_optimized_quote_queryset(
+            Quote.objects.filter(pk=quote.pk), request.user
+        ).first()
         return Response(
-            QuoteSerializer(quote, context={'request': request}).data,
+            QuoteSerializer(optimized_quote, context={'request': request}).data,
             status=status.HTTP_200_OK,
         )
 
@@ -1736,8 +1742,20 @@ class QuoteGuessesListView(generics.ListAPIView):
         return (
             QuoteGuess.objects
             .filter(quote=quote)
-            .exclude(user__id__in=blocked_ids)  # Exclude guesses from blocked users
+            .exclude(user__id__in=blocked_ids)
             .select_related('user', 'guessed_user')
+            .prefetch_related(
+                Prefetch(
+                    'user__sent_friendships',
+                    queryset=Friendship.objects.filter(receiver=self.request.user),
+                    to_attr='_friendship_with_requester_sent',
+                ),
+                Prefetch(
+                    'user__received_friendships',
+                    queryset=Friendship.objects.filter(sender=self.request.user),
+                    to_attr='_friendship_with_requester_received',
+                ),
+            )
             .order_by('-created_at')
         )
 
