@@ -690,7 +690,10 @@ class CancelFriendRequestView(APIView):
             processed_at__isnull=True,
         ).delete()
 
-        friendship.delete()  # CASCADE removes the Notification group record
+        # Friendship FK on Notification is SET_NULL, so explicitly clean up before deleting.
+        Notification.objects.filter(friendship=friendship, notification_type='friend_request').delete()
+
+        friendship.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -713,7 +716,10 @@ class UnfriendView(APIView):
         if not friendship:
             return api_error(NOT_FRIENDS, "No accepted friendship found with this user.", status.HTTP_404_NOT_FOUND)
 
-        friendship.delete()  # CASCADE removes any Notification group records for this friendship
+        # Friendship FK on Notification is SET_NULL, so explicitly clean up before deleting.
+        Notification.objects.filter(friendship=friendship).delete()
+
+        friendship.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
