@@ -177,6 +177,12 @@ QUOTE_EDIT_WINDOW = timedelta(minutes=15)
 PUSH_NOTIFICATIONS_ENABLED = False  # Overridden to True in production
 NOTIFICATION_RETENTION_DAYS = 90
 
+# Push token staleness threshold.
+# Tokens not refreshed within this window are considered stale (device likely logged out
+# with no network and never retried). send_push_notification skips them.
+# Matches REFRESH_TOKEN_LIFETIME so a token expires when the JWT session would too.
+PUSH_TOKEN_STALE_DAYS = 60
+
 Q_CLUSTER = {
     'name': 'yapify',
     'workers': 2,

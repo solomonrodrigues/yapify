@@ -22,9 +22,18 @@ def send_push_notification(recipient_id, title, body, data):
     )
     from djangoapp.notifications.models import DeviceToken
 
+    stale_cutoff = timezone.now() - timedelta(days=settings.PUSH_TOKEN_STALE_DAYS)
+
     tokens = list(
-        DeviceToken.objects.filter(user_id=recipient_id, is_active=True)
-        .values_list('token', flat=True)
+        DeviceToken.objects.filter(
+            user_id=recipient_id,
+            is_active=True,
+            # Skip tokens not refreshed recently — likely logged-out devices where
+            # deregistration failed and was never retried (e.g. persistent no-network).
+            # Null tokens (pre-migration) were backfilled from updated_at, so they
+            # are also covered by this filter.
+            last_refreshed_at__gte=stale_cutoff,
+        ).values_list('token', flat=True)
     )
     if not tokens:
         return

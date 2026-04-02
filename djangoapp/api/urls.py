@@ -1,6 +1,5 @@
 # urls.py
 from django.urls import path
-from rest_framework_simplejwt.views import TokenRefreshView
 from djangoapp.api import views
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView
 
@@ -17,7 +16,7 @@ urlpatterns = [
     # Authentication
     path('auth/register/', views.RegisterView.as_view(), name='register'),
     path('auth/login/', views.CustomTokenObtainPairView.as_view(), name='login'),
-    path('auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('auth/refresh/', views.TokenRefreshView.as_view(), name='token_refresh'),
     path('auth/verify-email/', views.VerifyEmailView.as_view(), name='verify_email'),
     path('auth/resend-verification/', views.ResendVerificationView.as_view(), name='resend_verification'),
     path('auth/password-reset/', views.PasswordResetRequestView.as_view(), name='password_reset_request'),

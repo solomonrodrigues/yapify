@@ -10,7 +10,7 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView as BaseTokenRefreshView
 from django.shortcuts import get_object_or_404
 from django.conf import settings
 from django.db.models import F, Q, Max, Count, Exists, OuterRef, Prefetch
@@ -1486,7 +1486,14 @@ class NotificationListView(generics.ListAPIView):
 
 class DeviceTokenView(APIView):
     """Register or deregister an Expo push token for the authenticated user."""
-    permission_classes = [permissions.IsAuthenticated]
+
+    def get_permissions(self):
+        # DELETE is intentionally open: the push token itself is the credential.
+        # This allows the pending-deregistration retry queue on the client to fire
+        # after a network-down logout, without requiring an active session.
+        if self.request.method == 'DELETE':
+            return []
+        return [permissions.IsAuthenticated()]
 
     @extend_schema(
         summary="Register device push token",
@@ -1500,12 +1507,13 @@ class DeviceTokenView(APIView):
 
         device_token, created = DeviceToken.objects.get_or_create(
             token=token,
-            defaults={'user': request.user, 'is_active': True},
+            defaults={'user': request.user, 'is_active': True, 'last_refreshed_at': timezone.now()},
         )
         if not created and (not device_token.is_active or device_token.user_id != request.user.id):
             device_token.user = request.user
             device_token.is_active = True
-            device_token.save(update_fields=['user', 'is_active', 'updated_at'])
+            device_token.last_refreshed_at = timezone.now()
+            device_token.save(update_fields=['user', 'is_active', 'last_refreshed_at', 'updated_at'])
 
         return Response(
             {'detail': 'Device registered.'},
@@ -1522,10 +1530,39 @@ class DeviceTokenView(APIView):
         serializer.is_valid(raise_exception=True)
         token = serializer.validated_data['token']
 
-        deleted, _ = DeviceToken.objects.filter(user=request.user, token=token).delete()
-        if not deleted:
-            return api_error(NOT_FOUND, "Token not found.", status.HTTP_404_NOT_FOUND)
+        if request.user and request.user.is_authenticated:
+            # Authenticated path: hard-delete, verify ownership.
+            deleted, _ = DeviceToken.objects.filter(user=request.user, token=token).delete()
+            if not deleted:
+                return api_error(NOT_FOUND, "Token not found.", status.HTTP_404_NOT_FOUND)
+        else:
+            # Unauthenticated path: pending-deregistration retry.
+            # Deactivate by token value alone — ownership verified implicitly because
+            # only the originating device knows the full token string.
+            DeviceToken.objects.filter(token=token, is_active=True).update(is_active=False)
+
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class TokenRefreshView(BaseTokenRefreshView):
+    """
+    Wraps simplejwt's TokenRefreshView to update last_refreshed_at on the specific
+    device making the request. The client optionally passes `push_token` in the
+    request body alongside `refresh`. Only that token's timestamp is updated —
+    not all of the user's tokens — so a stale token on a logged-out device is
+    not kept alive by activity on a different device.
+    """
+    def post(self, request, *args, **kwargs):
+        push_token = request.data.get('push_token')
+        response = super().post(request, *args, **kwargs)
+        if response.status_code == 200 and push_token:
+            try:
+                DeviceToken.objects.filter(token=push_token, is_active=True).update(
+                    last_refreshed_at=timezone.now()
+                )
+            except Exception:
+                pass  # Never let a push-token update break token refresh
+        return response
 
 
 @extend_schema(

@@ -108,7 +108,24 @@ class Event(models.Model):
 
 
 class DeviceToken(models.Model):
-    """Expo push token for a user's device."""
+    """
+    Expo push token for a user's device.
+
+    Token lifecycle
+    ---------------
+    is_active=False is set when:
+      - The user explicitly logs out and the DELETE /api/devices/ call succeeds.
+      - The user's app calls DELETE without auth on the next cold start (pending-deregistration
+        retry queue — handles the case where the logout call failed due to no network).
+      - The Expo push service returns DeviceNotRegistered, meaning the app was uninstalled or
+        the OS revoked the token.
+
+    Known limitation
+    ----------------
+    If a device logs out with no network AND never opens the app again, the token stays active
+    indefinitely. The last_refreshed_at field provides a bounded upper limit: tokens not seen
+    within PUSH_TOKEN_STALE_DAYS are skipped at send time. See docs/push-notification-token-lifecycle.md.
+    """
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -116,6 +133,9 @@ class DeviceToken(models.Model):
     )
     token = models.CharField(max_length=200, unique=True)  # ExponentPushToken[...]
     is_active = models.BooleanField(default=True)  # False when Expo reports DeviceNotRegistered
+    # Updated on registration and on every successful JWT refresh. Used to suppress
+    # notifications to tokens that haven't been seen in PUSH_TOKEN_STALE_DAYS.
+    last_refreshed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
