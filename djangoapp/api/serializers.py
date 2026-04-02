@@ -2,7 +2,7 @@
 from typing import List, Optional
 import random
 
-from drf_spectacular.utils import extend_schema_field
+from drf_spectacular.utils import extend_schema_field, extend_schema_serializer
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
@@ -617,6 +617,7 @@ class PublicUserSerializer(serializers.ModelSerializer):
         return None
 
 
+@extend_schema_serializer(component_name='PublicUserSummary')
 class PublicUserListSerializer(PublicUserSerializer):
     """Lighter serializer for user list views — excludes expensive nested quotes."""
 
