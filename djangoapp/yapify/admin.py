@@ -94,6 +94,7 @@ class EmailVerificationAdmin(UnfoldModelAdmin):
     )
     list_filter = ("created_at", "expires_at", "used_at")
     search_fields = ("user__username", "user__email")
+    autocomplete_fields = ("user",)
     readonly_fields = ("code_hash", "created_at", "expires_at")
 
     def is_valid_display(self, obj):
@@ -102,9 +103,7 @@ class EmailVerificationAdmin(UnfoldModelAdmin):
     is_valid_display.short_description = "Is Valid?"
 
     def get_queryset(self, request):
-        # Prefetch related users to make the list faster
-        qs = super().get_queryset(request)
-        return qs.select_related("user")
+        return super().get_queryset(request).select_related("user")
 
 
 @admin.register(Friendship)
@@ -238,6 +237,9 @@ class SavedQuoteAdmin(UnfoldModelAdmin):
     autocomplete_fields = ("user", "quote")
     readonly_fields = ("created_at",)
 
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("user", "quote")
+
     def quote_short(self, obj):
         return obj.quote.text[:50] + "…" if obj.quote.text else ""
     quote_short.short_description = "Quote"
@@ -259,6 +261,9 @@ class HiddenQuoteAdmin(UnfoldModelAdmin):
     )
     autocomplete_fields = ("user", "quote")
     readonly_fields = ("created_at",)
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("user", "quote")
 
     def quote_short(self, obj):
         return obj.quote.text[:50] + "…" if obj.quote.text else ""
@@ -286,6 +291,9 @@ class RecentSearchItemAdmin(UnfoldModelAdmin):
     )
     autocomplete_fields = ("owner", "user_target", "quote_target")
     readonly_fields = ("touched_at",)
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("owner", "user_target", "quote_target")
 
     def target_type(self, obj):
         return "User" if obj.user_target_id else "Quote"

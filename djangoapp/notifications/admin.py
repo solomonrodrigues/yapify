@@ -10,12 +10,13 @@ class NotificationAdmin(UnfoldModelAdmin):
     list_display = ('notification_type', 'recipient', 'actor_count', 'is_read', 'last_event_at')
     list_filter = ('notification_type', 'is_read')
     search_fields = ('recipient__email', 'recipient__username')
+    autocomplete_fields = ('recipient', 'quote', 'friendship')
     readonly_fields = ('actor_ids', 'actor_count', 'last_event_at', 'created_at')
     date_hierarchy = 'last_event_at'
     actions = ['mark_as_read', 'mark_as_unread']
 
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related('recipient')
+        return super().get_queryset(request).select_related('recipient', 'quote', 'friendship')
 
     @admin.action(description='Mark selected notifications as read')
     def mark_as_read(self, request, queryset):
@@ -33,11 +34,12 @@ class EventAdmin(UnfoldModelAdmin):
     list_display = ('event_type', 'actor', 'recipient', 'processed_at', 'created_at')
     list_filter = ('event_type',)
     search_fields = ('actor__email', 'actor__username', 'recipient__email', 'recipient__username')
+    autocomplete_fields = ('actor', 'recipient', 'quote', 'friendship')
     readonly_fields = ('processed_at', 'created_at')
     date_hierarchy = 'created_at'
 
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related('actor', 'recipient')
+        return super().get_queryset(request).select_related('actor', 'recipient', 'quote', 'friendship')
 
 
 @admin.register(DeviceToken)
@@ -45,6 +47,7 @@ class DeviceTokenAdmin(UnfoldModelAdmin):
     list_display = ('user', 'token_truncated', 'is_active', 'last_refreshed_at', 'created_at')
     list_filter = ('is_active',)
     search_fields = ('user__email', 'user__username', 'token')
+    autocomplete_fields = ('user',)
     readonly_fields = ('last_refreshed_at', 'created_at', 'updated_at')
     actions = ['deactivate_tokens', 'activate_tokens']
 
