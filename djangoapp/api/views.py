@@ -1643,10 +1643,15 @@ class UnreadNotificationCountView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        unread_count = Notification.objects.filter(
+        blocked_ids = set(request.user.get_all_blocked_user_ids())
+        unread = Notification.objects.filter(
             recipient=request.user,
             is_read=False,
-        ).count()
+        ).values_list('actor_ids', flat=True)
+        unread_count = sum(
+            1 for actor_ids in unread
+            if any(uid not in blocked_ids for uid in actor_ids)
+        )
         return Response({'unread_count': unread_count})
 
 
