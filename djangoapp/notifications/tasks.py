@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from django.conf import settings
 from django.utils import timezone
@@ -58,7 +58,7 @@ def flush_batched_push(recipient_id, notification_type, quote_id, window_start_i
     from djangoapp.notifications.models import Event
 
     recipient_id = int(recipient_id)
-    quote_id = int(quote_id) if quote_id and str(quote_id) != 'None' else None
+    quote_id = int(quote_id) if quote_id not in (None, 'None', '') else None
     window_start = datetime.fromisoformat(window_start_iso)
 
     window_events = (

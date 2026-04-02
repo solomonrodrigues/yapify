@@ -87,7 +87,7 @@ def process_event(event_id):
             notification_type=event.event_type,
             quote=event.quote,
             friendship=event.friendship,
-            defaults={'last_event_at': event.created_at},
+            defaults={'last_event_at': event.created_at, 'actor_count': 1},
         )
         if not created:
             # Re-acquire with a row lock to prevent concurrent worker corruption
@@ -100,7 +100,7 @@ def process_event(event_id):
             ids.remove(actor_id)
         ids.insert(0, actor_id)
         notification.actor_ids = ids[:50]
-        if is_new_actor:
+        if is_new_actor and not created:
             notification.actor_count += 1
         notification.last_event_at = max(notification.last_event_at, event.created_at)
         notification.is_read = False
