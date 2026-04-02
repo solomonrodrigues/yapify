@@ -124,6 +124,8 @@ def process_event(event_id):
     body = _PUSH_BODIES.get(event.event_type, '').format(name=event.actor.get_full_name())
     recipient_id = event.recipient_id
     data = {'notification_type': event.event_type}
+    if event.quote_id:
+        data['quote_id'] = str(event.quote_id)
 
     if event.event_type in HIGH_TIER:
         async_task(

@@ -93,7 +93,10 @@ def flush_batched_push(recipient_id, notification_type, quote_id, window_start_i
         else f'{count} people {verb} your quote'
     )
 
-    send_push_notification(recipient_id, title, body, {'notification_type': notification_type})
+    data = {'notification_type': notification_type}
+    if quote_id:
+        data['quote_id'] = str(quote_id)
+    send_push_notification(recipient_id, title, body, data)
 
 
 def cleanup_notifications():

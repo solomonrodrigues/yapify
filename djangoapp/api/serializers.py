@@ -633,7 +633,7 @@ class NotificationSerializer(serializers.ModelSerializer):
     @extend_schema_field(MinimalUserSerializer(many=True))
     def get_actors(self, obj):
         # _actors is attached by NotificationListView.list() via batch fetch
-        return MinimalUserSerializer(obj._actors, many=True).data
+        return MinimalUserSerializer(getattr(obj, '_actors', []), many=True).data
 
     class Meta:
         model = Notification

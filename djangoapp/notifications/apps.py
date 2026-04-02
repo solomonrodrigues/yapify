@@ -14,7 +14,7 @@ def _setup_cleanup_schedule(sender, **kwargs):
     """Create the nightly cleanup schedule after migrations run."""
     try:
         from django_q.models import Schedule
-        Schedule.objects.get_or_create(
+        Schedule.objects.update_or_create(
             name='cleanup_notifications_nightly',
             defaults={
                 'func': 'djangoapp.notifications.tasks.cleanup_notifications',

@@ -42,10 +42,10 @@ class EventAdmin(UnfoldModelAdmin):
 
 @admin.register(DeviceToken)
 class DeviceTokenAdmin(UnfoldModelAdmin):
-    list_display = ('user', 'token_truncated', 'is_active', 'created_at')
+    list_display = ('user', 'token_truncated', 'is_active', 'last_refreshed_at', 'created_at')
     list_filter = ('is_active',)
     search_fields = ('user__email', 'user__username', 'token')
-    readonly_fields = ('created_at', 'updated_at')
+    readonly_fields = ('last_refreshed_at', 'created_at', 'updated_at')
     actions = ['deactivate_tokens', 'activate_tokens']
 
     def get_queryset(self, request):
