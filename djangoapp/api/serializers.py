@@ -103,14 +103,17 @@ class UserSerializer(serializers.ModelSerializer):
                   'current_streak', 'longest_streak')
         read_only_fields = ('id', 'email', 'date_joined')
 
+    @extend_schema_field(serializers.IntegerField())
     def get_friends_count(self, obj):
         val = getattr(obj, 'annotated_friends_count', None)
         return val if val is not None else obj.get_friends().count()
 
+    @extend_schema_field(serializers.IntegerField())
     def get_quotes_posted(self, obj):
         val = getattr(obj, 'annotated_quotes_posted', None)
         return val if val is not None else obj.posted_quotes.filter(is_active=True).count()
 
+    @extend_schema_field(serializers.IntegerField())
     def get_quotes_received(self, obj):
         val = getattr(obj, 'annotated_quotes_received', None)
         return val if val is not None else obj.quotes_about_me.filter(is_active=True).count()
@@ -533,16 +536,19 @@ class PublicUserSerializer(serializers.ModelSerializer):
         """Get the current authenticated user from context"""
         return self.context['request'].user
 
+    @extend_schema_field(serializers.IntegerField())
     def get_friends_count(self, obj) -> int:
         """Total friends this user has"""
         val = getattr(obj, 'annotated_friends_count', None)
         return val if val is not None else obj.get_friends().count()
 
+    @extend_schema_field(serializers.IntegerField())
     def get_quotes_posted(self, obj) -> int:
         """Total quotes this user has posted"""
         val = getattr(obj, 'annotated_quotes_posted', None)
         return val if val is not None else obj.posted_quotes.filter(is_active=True).count()
 
+    @extend_schema_field(serializers.IntegerField())
     def get_quotes_received(self, obj) -> int:
         """Total quotes about this user"""
         val = getattr(obj, 'annotated_quotes_received', None)
@@ -623,6 +629,7 @@ class NotificationSerializer(serializers.ModelSerializer):
     actors = serializers.SerializerMethodField()
     friendship = FriendshipSerializer(read_only=True, allow_null=True)
 
+    @extend_schema_field(MinimalUserSerializer(many=True))
     def get_actors(self, obj):
         # _actors is attached by NotificationListView.list() via batch fetch
         return MinimalUserSerializer(obj._actors, many=True).data
@@ -711,12 +718,15 @@ class RecentSearchItemSerializer(serializers.ModelSerializer):
         model = RecentSearchItem
         fields = ("kind", "target_id", "touched_at", "last_query", "data")
 
+    @extend_schema_field(serializers.ChoiceField(choices=["user", "quote"]))
     def get_kind(self, obj):
         return "user" if obj.user_target_id else "quote"
 
+    @extend_schema_field(serializers.CharField())
     def get_target_id(self, obj):
         return str(obj.user_target_id or obj.quote_target_id)
 
+    @extend_schema_field(serializers.DictField())
     def get_data(self, obj):
         if obj.user_target_id and obj.user_target:
             return MinimalUserSerializer(obj.user_target).data
@@ -744,3 +754,64 @@ class ReportResponseSerializer(serializers.ModelSerializer):
         model = Report
         fields = ('id', 'reason', 'description', 'created_at')
         read_only_fields = fields
+
+
+class DeviceTokenSerializer(serializers.Serializer):
+    token = serializers.RegexField(
+        regex=r'^ExponentPushToken\[.+\]$',
+        error_messages={'invalid': 'Invalid Expo push token format.'},
+    )
+
+
+class RegisterResponseSerializer(serializers.Serializer):
+    user = UserSerializer(read_only=True)
+    message = serializers.CharField()
+
+
+class MessageResponseSerializer(serializers.Serializer):
+    message = serializers.CharField()
+
+
+class FriendRequestActionSerializer(serializers.Serializer):
+    action = serializers.ChoiceField(choices=['accept', 'reject'])
+
+
+class FriendshipWithMessageSerializer(serializers.Serializer):
+    message = serializers.CharField()
+    friendship = FriendshipSerializer(read_only=True)
+
+
+class WitnessResponseSerializer(serializers.Serializer):
+    message = serializers.CharField()
+    witness = QuoteWitnessSerializer(read_only=True, allow_null=True, required=False)
+
+
+class QuoteRespondRequestSerializer(serializers.Serializer):
+    response = serializers.ChoiceField(
+        choices=['confirmed', 'denied'],
+        allow_null=True,
+    )
+
+
+class QuoteWithMessageSerializer(serializers.Serializer):
+    message = serializers.CharField()
+    quote = QuoteSerializer(read_only=True)
+
+
+class QuoteAssignUserRequestSerializer(serializers.Serializer):
+    quoted_user_id = serializers.IntegerField()
+
+
+class MarkAllReadResponseSerializer(serializers.Serializer):
+    message = serializers.CharField()
+    count = serializers.IntegerField()
+
+
+class UnreadCountResponseSerializer(serializers.Serializer):
+    unread_count = serializers.IntegerField()
+
+
+class AppConfigResponseSerializer(serializers.Serializer):
+    minimum_version = serializers.CharField()
+    ios_store_url = serializers.CharField(allow_null=True)
+    android_store_url = serializers.CharField(allow_null=True)

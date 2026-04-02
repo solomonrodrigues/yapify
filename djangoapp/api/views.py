@@ -42,6 +42,18 @@ from .serializers import (
     DetailResponseSerializer,
     ReportRequestSerializer,
     ReportResponseSerializer,
+    DeviceTokenSerializer,
+    RegisterResponseSerializer,
+    MessageResponseSerializer,
+    FriendRequestActionSerializer,
+    FriendshipWithMessageSerializer,
+    WitnessResponseSerializer,
+    QuoteRespondRequestSerializer,
+    QuoteWithMessageSerializer,
+    QuoteAssignUserRequestSerializer,
+    MarkAllReadResponseSerializer,
+    UnreadCountResponseSerializer,
+    AppConfigResponseSerializer,
 )
 from .utils import send_verification_email, normalize_email, send_password_reset_email
 from .exceptions import api_error
@@ -157,6 +169,12 @@ class StandardResultsPagination(PageNumberPagination):
     max_page_size = 100
 
 
+@extend_schema(
+    summary="Register a new user",
+    request=UserRegistrationSerializer,
+    responses={201: RegisterResponseSerializer},
+    tags=["auth"],
+)
 class RegisterView(generics.CreateAPIView):
     """User registration endpoint"""
     queryset = User.objects.all()
@@ -238,6 +256,12 @@ class VerifyEmailView(APIView):
         }, status=status.HTTP_200_OK)
 
 
+@extend_schema(
+    summary="Resend email verification code",
+    request=ResendVerificationSerializer,
+    responses={200: DetailResponseSerializer},
+    tags=["auth"],
+)
 class ResendVerificationView(APIView):
     permission_classes = [permissions.AllowAny]
     throttle_classes = [ScopedRateThrottle]
@@ -613,6 +637,12 @@ class FriendRequestListView(generics.ListAPIView):
         return self.request.user.get_pending_friend_requests()
 
 
+@extend_schema(
+    summary="Send a friend request",
+    request=FriendRequestSerializer,
+    responses={201: FriendshipWithMessageSerializer},
+    tags=["friends"],
+)
 class SendFriendRequestView(generics.CreateAPIView):
     """Send friend request"""
     serializer_class = FriendRequestSerializer
@@ -632,6 +662,11 @@ class SendFriendRequestView(generics.CreateAPIView):
         }, status=status.HTTP_201_CREATED)
 
 
+@extend_schema(
+    summary="Cancel a sent friend request",
+    responses={204: None},
+    tags=["friends"],
+)
 class CancelFriendRequestView(APIView):
     """Cancel outgoing pending friend request."""
     permission_classes = [permissions.IsAuthenticated]
@@ -659,6 +694,11 @@ class CancelFriendRequestView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+@extend_schema(
+    summary="Unfriend a user",
+    responses={204: None},
+    tags=["friends"],
+)
 class UnfriendView(APIView):
     """Unfriend (remove accepted friendship)."""
     permission_classes = [permissions.IsAuthenticated]
@@ -677,6 +717,12 @@ class UnfriendView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+@extend_schema(
+    summary="Accept or reject a friend request",
+    request=FriendRequestActionSerializer,
+    responses={200: FriendshipWithMessageSerializer},
+    tags=["friends"],
+)
 class RespondToFriendRequestView(APIView):
     """Accept or reject friend request"""
     permission_classes = [permissions.IsAuthenticated]
@@ -712,6 +758,11 @@ class BlockUserView(APIView):
     """
     permission_classes = [permissions.IsAuthenticated]
 
+    @extend_schema(
+        summary="Block a user",
+        responses={201: DetailResponseSerializer, 200: DetailResponseSerializer},
+        tags=["users"],
+    )
     @transaction.atomic
     def post(self, request, user_id):
         """Block a user."""
@@ -752,6 +803,11 @@ class BlockUserView(APIView):
 
         return Response({'detail': 'User blocked.'}, status=status.HTTP_201_CREATED)
 
+    @extend_schema(
+        summary="Unblock a user",
+        responses={200: DetailResponseSerializer},
+        tags=["users"],
+    )
     @transaction.atomic
     def delete(self, request, user_id):
         """Unblock a user."""
@@ -966,6 +1022,11 @@ class QuoteDetailView(OptimizedQuoteViewMixin, generics.RetrieveUpdateDestroyAPI
         instance.save()
 
 
+@extend_schema(
+    summary="Witness or unwitness a quote",
+    responses={200: WitnessResponseSerializer},
+    tags=["quotes"],
+)
 class WitnessQuoteView(APIView):
     """Witness/unwitness a quote"""
     permission_classes = [permissions.IsAuthenticated]
@@ -991,6 +1052,11 @@ class WitnessQuoteView(APIView):
             return Response({'message': 'Quote unwitnessed'})
 
 
+@extend_schema(
+    summary="Like or unlike a quote",
+    responses={200: MessageResponseSerializer},
+    tags=["quotes"],
+)
 class LikeQuoteView(APIView):
     """Like/unlike a quote"""
     permission_classes = [permissions.IsAuthenticated]
@@ -1048,6 +1114,12 @@ class QuoteWitnessesListView(generics.ListAPIView):
         return get_optimized_user_queryset(qs, current_user=self.request.user)
 
 
+@extend_schema(
+    summary="Confirm or deny a quote attribution",
+    request=QuoteRespondRequestSerializer,
+    responses={200: QuoteWithMessageSerializer},
+    tags=["quotes"],
+)
 class RespondToQuoteView(APIView):
     """
     Allow the quoted user to confirm or deny a quote attributed to them.
@@ -1088,6 +1160,11 @@ class SaveQuoteView(APIView):
     """
     permission_classes = [permissions.IsAuthenticated]
 
+    @extend_schema(
+        summary="Save a quote",
+        responses={201: DetailResponseSerializer, 200: DetailResponseSerializer},
+        tags=["quotes"],
+    )
     @transaction.atomic
     def post(self, request, quote_id):
         quote = get_visible_quote_or_404(request.user, quote_id)
@@ -1109,6 +1186,11 @@ class SaveQuoteView(APIView):
                 status=status.HTTP_200_OK,
             )
 
+    @extend_schema(
+        summary="Unsave a quote",
+        responses={200: DetailResponseSerializer},
+        tags=["quotes"],
+    )
     @transaction.atomic
     def delete(self, request, quote_id):
         quote = get_visible_quote_or_404(request.user, quote_id)
@@ -1134,6 +1216,11 @@ class HideQuoteView(APIView):
     """
     permission_classes = [permissions.IsAuthenticated]
 
+    @extend_schema(
+        summary="Hide a quote",
+        responses={201: DetailResponseSerializer, 200: DetailResponseSerializer},
+        tags=["quotes"],
+    )
     @transaction.atomic
     def post(self, request, quote_id):
         quote = get_visible_quote_or_404(request.user, quote_id)
@@ -1155,6 +1242,11 @@ class HideQuoteView(APIView):
                 status=status.HTTP_200_OK,
             )
 
+    @extend_schema(
+        summary="Unhide a quote",
+        responses={200: DetailResponseSerializer},
+        tags=["quotes"],
+    )
     @transaction.atomic
     def delete(self, request, quote_id):
         quote = get_visible_quote_or_404(request.user, quote_id)
@@ -1289,6 +1381,12 @@ class RespondableQuotesListView(OptimizedQuoteViewMixin, generics.ListAPIView):
         return get_optimized_quote_queryset(qs, user)
 
 
+@extend_schema(
+    summary="Assign a user to a quote",
+    request=QuoteAssignUserRequestSerializer,
+    responses={200: QuoteSerializer},
+    tags=["quotes"],
+)
 class QuoteAssignUserView(APIView):
     """
     Allow the author of a quote to replace a quoted_name with a quoted_user.
@@ -1336,6 +1434,11 @@ class QuoteAssignUserView(APIView):
         )
 
 
+@extend_schema(
+    summary="List notifications",
+    responses={200: NotificationSerializer(many=True)},
+    tags=["notifications"],
+)
 class NotificationListView(generics.ListAPIView):
     """List user notifications.
 
@@ -1381,18 +1484,19 @@ class NotificationListView(generics.ListAPIView):
         return Response(serializer.data)
 
 
-import re
-_EXPO_TOKEN_RE = re.compile(r'^ExponentPushToken\[.+]$')
-
-
 class DeviceTokenView(APIView):
     """Register or deregister an Expo push token for the authenticated user."""
     permission_classes = [permissions.IsAuthenticated]
 
+    @extend_schema(
+        summary="Register device push token",
+        request=DeviceTokenSerializer,
+        responses={201: DetailResponseSerializer, 200: DetailResponseSerializer},
+    )
     def post(self, request):
-        token = request.data.get('token', '').strip()
-        if not _EXPO_TOKEN_RE.match(token):
-            return api_error(INVALID_TOKEN_FORMAT, "Invalid token format.", status.HTTP_400_BAD_REQUEST)
+        serializer = DeviceTokenSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        token = serializer.validated_data['token']
 
         device_token, created = DeviceToken.objects.get_or_create(
             token=token,
@@ -1408,14 +1512,27 @@ class DeviceTokenView(APIView):
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
         )
 
+    @extend_schema(
+        summary="Deregister device push token",
+        request=DeviceTokenSerializer,
+        responses={204: None},
+    )
     def delete(self, request):
-        token = request.data.get('token', '').strip()
+        serializer = DeviceTokenSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        token = serializer.validated_data['token']
+
         deleted, _ = DeviceToken.objects.filter(user=request.user, token=token).delete()
         if not deleted:
             return api_error(NOT_FOUND, "Token not found.", status.HTTP_404_NOT_FOUND)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+@extend_schema(
+    summary="Mark a notification as read",
+    responses={200: MessageResponseSerializer},
+    tags=["notifications"],
+)
 class MarkNotificationReadView(APIView):
     """Mark notification as read"""
     permission_classes = [permissions.IsAuthenticated]
@@ -1430,6 +1547,11 @@ class MarkNotificationReadView(APIView):
         return Response({'message': 'Notification marked as read'})
 
 
+@extend_schema(
+    summary="Mark all notifications as read",
+    responses={200: MarkAllReadResponseSerializer},
+    tags=["notifications"],
+)
 class MarkAllNotificationsReadView(APIView):
     """Mark all notifications as read."""
     permission_classes = [permissions.IsAuthenticated]
@@ -1449,6 +1571,11 @@ class MarkAllNotificationsReadView(APIView):
         )
 
 
+@extend_schema(
+    summary="Mark a notification as unread",
+    responses={200: MessageResponseSerializer},
+    tags=["notifications"],
+)
 class MarkNotificationUnreadView(APIView):
     """Mark notification as unread"""
     permission_classes = [permissions.IsAuthenticated]
@@ -1463,6 +1590,11 @@ class MarkNotificationUnreadView(APIView):
         return Response({'message': 'Notification marked as unread'})
 
 
+@extend_schema(
+    summary="Get unread notification count",
+    responses={200: UnreadCountResponseSerializer},
+    tags=["notifications"],
+)
 class UnreadNotificationCountView(APIView):
     """Return the count of unread notifications"""
     permission_classes = [permissions.IsAuthenticated]
@@ -1475,6 +1607,11 @@ class UnreadNotificationCountView(APIView):
         return Response({'unread_count': unread_count})
 
 
+@extend_schema(
+    summary="Delete a notification",
+    responses={204: None},
+    tags=["notifications"],
+)
 class DeleteNotificationView(APIView):
     """Delete a single notification"""
     permission_classes = [permissions.IsAuthenticated]
@@ -1827,6 +1964,11 @@ class ReportUserView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+@extend_schema(
+    summary="Get app config",
+    responses={200: AppConfigResponseSerializer},
+    tags=["config"],
+)
 class AppConfigView(APIView):
     """Public endpoint returning the minimum supported app version and store URLs."""
     permission_classes = [permissions.AllowAny]
