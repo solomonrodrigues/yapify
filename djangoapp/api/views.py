@@ -1151,6 +1151,10 @@ class RespondToQuoteView(APIView):
         quote.quoted_user_response = response_value
         quote.save(update_fields=['quoted_user_response'])
 
+        # Notify the author when the quoted user responds (skip if clearing the response)
+        if response_value is not None and quote.author != request.user:
+            emit_event('quote_response', actor=request.user, recipient=quote.author, quote=quote)
+
         optimized_quote = get_optimized_quote_queryset(
             Quote.objects.filter(pk=quote.pk), request.user
         ).first()
@@ -1691,6 +1695,15 @@ class QuoteGuessCreateView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
         guess = serializer.save()
         request.user.refresh_from_db(fields=['current_streak', 'longest_streak'])
+
+        # Notify the quote author on the very first guess (skips don't count)
+        if not guess.skipped and guess.quote.author != request.user:
+            is_first = not QuoteGuess.objects.filter(
+                quote=guess.quote, skipped=False
+            ).exclude(pk=guess.pk).exists()
+            if is_first:
+                emit_event('first_guess', actor=request.user, recipient=guess.quote.author, quote=guess.quote)
+
         response_serializer = QuoteGuessCreateResponseSerializer(guess, context={'request': request})
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 

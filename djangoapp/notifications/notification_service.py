@@ -1,3 +1,4 @@
+import random as _random
 from datetime import timedelta
 
 from django.db import transaction
@@ -7,7 +8,7 @@ from django.utils import timezone
 from djangoapp.notifications.models import Event, Notification
 
 
-HIGH_TIER = {'friend_request', 'friend_accepted', 'new_quote'}
+HIGH_TIER = {'friend_request', 'friend_accepted', 'new_quote', 'first_guess', 'quote_response'}
 LOW_TIER = {'quote_witnessed', 'quote_liked'}
 
 _MAX_NOTIFICATIONS_PER_USER = 500
@@ -18,6 +19,8 @@ _PUSH_TITLES = {
     'new_quote': 'New Quote About You',
     'quote_witnessed': 'Quote Witnessed',
     'quote_liked': 'Quote Liked',
+    'first_guess': 'First Guess Is In',
+    'quote_response': 'Quote Response',
 }
 
 _PUSH_BODIES = {
@@ -26,7 +29,25 @@ _PUSH_BODIES = {
     'new_quote': '{name} posted a quote about you',
     'quote_witnessed': '{name} witnessed your quote',
     'quote_liked': '{name} liked your quote',
+    'first_guess': '{name} made the first guess on your quote',
+    'quote_response': '{name} responded to your quote',
 }
+
+# Subtitles appended to certain push notifications to nudge users to post.
+# Shown below the body on iOS; silently ignored on platforms that don't support it.
+_ENGAGEMENT_SUBTITLES = [
+    'Anyone say something funny recently?',
+    'Catch what they said before they deny it 👀',
+    'Your group needs more quotes 📖',
+]
+
+_SUBTITLE_TYPES = {'new_quote', 'quote_witnessed', 'quote_liked', 'first_guess'}
+
+
+def _engagement_subtitle(event_type):
+    if event_type not in _SUBTITLE_TYPES:
+        return None
+    return _random.choice(_ENGAGEMENT_SUBTITLES)
 
 
 def emit_event(event_type, actor, recipient, quote=None, friendship=None):
@@ -122,6 +143,16 @@ def process_event(event_id):
     # Enqueue push notification
     title = _PUSH_TITLES.get(event.event_type, '')
     body = _PUSH_BODIES.get(event.event_type, '').format(name=event.actor.get_full_name())
+
+    # For quote_response, use the actual confirmed/denied value in the body
+    if event.event_type == 'quote_response' and event.quote_id:
+        response_val = event.quote.quoted_user_response
+        if response_val == 'confirmed':
+            body = f'{event.actor.get_full_name()} confirmed your quote ✅'
+        elif response_val == 'denied':
+            body = f'{event.actor.get_full_name()} denied your quote 🙅'
+
+    subtitle = _engagement_subtitle(event.event_type)
     recipient_id = event.recipient_id
     data = {'notification_type': event.event_type}
     if event.quote_id:
@@ -130,7 +161,7 @@ def process_event(event_id):
     if event.event_type in HIGH_TIER:
         async_task(
             'djangoapp.notifications.tasks.send_push_notification',
-            recipient_id, title, body, data,
+            recipient_id, title, body, data, subtitle,
         )
     elif event.event_type in LOW_TIER:
         quote_id = event.quote_id

@@ -10,7 +10,7 @@ def process_event(event_id):
     _process(event_id)
 
 
-def send_push_notification(recipient_id, title, body, data):
+def send_push_notification(recipient_id, title, body, data, subtitle=None):
     if not settings.PUSH_NOTIFICATIONS_ENABLED:
         return
 
@@ -39,7 +39,7 @@ def send_push_notification(recipient_id, title, body, data):
         return
 
     messages = [
-        PushMessage(to=token, title=title, body=body, data=data)
+        PushMessage(to=token, title=title, body=body, data=data, subtitle=subtitle)
         for token in tokens
     ]
 
@@ -96,7 +96,10 @@ def flush_batched_push(recipient_id, notification_type, quote_id, window_start_i
     data = {'notification_type': notification_type}
     if quote_id:
         data['quote_id'] = str(quote_id)
-    send_push_notification(recipient_id, title, body, data)
+
+    from djangoapp.notifications.notification_service import _engagement_subtitle
+    subtitle = _engagement_subtitle(notification_type)
+    send_push_notification(recipient_id, title, body, data, subtitle)
 
 
 def cleanup_notifications():
