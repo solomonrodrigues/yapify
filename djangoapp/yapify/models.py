@@ -31,7 +31,7 @@ class User(AbstractUser):
 
     # Profile fields
     bio = models.TextField(max_length=500, blank=True, null=True)
-    profile_color = models.CharField(choices=ProfileColor, default=get_random_color)
+    profile_color = models.CharField(max_length=20, choices=ProfileColor, default=get_random_color)
     # Guess streak
     current_streak = models.PositiveIntegerField(default=0)
     longest_streak = models.PositiveIntegerField(default=0)
