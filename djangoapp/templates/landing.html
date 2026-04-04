@@ -153,6 +153,8 @@
     align-items: start;
     gap: 1rem;
     margin-bottom: 2.5rem;
+    padding-top: 3.5rem;
+    border-top: 1px solid var(--color-border);
   }
 
   .feature {
@@ -162,23 +164,23 @@
     padding: 2rem 1.75rem;
   }
 
-  .feature:nth-child(1) {
+  .feature:nth-child(2) {
     border-color: color-mix(in srgb, var(--color-teal) 35%, var(--color-border));
     background: color-mix(in srgb, var(--color-teal) 5%, var(--color-card));
   }
-  .feature:nth-child(1) .feature-tag { color: var(--color-teal); }
+  .feature:nth-child(2) .feature-tag { color: var(--color-teal); }
 
-  .feature:nth-child(2) {
+  .feature:nth-child(3) {
     border-color: color-mix(in srgb, var(--color-magenta) 35%, var(--color-border));
     background: color-mix(in srgb, var(--color-magenta) 5%, var(--color-card));
   }
-  .feature:nth-child(2) .feature-tag { color: var(--color-magenta); }
+  .feature:nth-child(3) .feature-tag { color: var(--color-magenta); }
 
-  .feature:nth-child(3) {
+  .feature:nth-child(4) {
     border-color: color-mix(in srgb, #fba617 35%, var(--color-border));
     background: color-mix(in srgb, #fba617 5%, var(--color-card));
   }
-  .feature:nth-child(3) .feature-tag { color: #fba617; }
+  .feature:nth-child(4) .feature-tag { color: #fba617; }
 
   .feature-tag {
     font-family: var(--font-mono);
@@ -205,10 +207,273 @@
     line-height: 1.6;
   }
 
+  /* ── How it works ── */
+  .how-it-works {
+    padding: 3.5rem 0 3rem;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .section-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-teal);
+    display: block;
+    margin-bottom: 2.5rem;
+  }
+
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2.5rem;
+  }
+
+  .step-num {
+    font-family: var(--font-mono);
+    font-size: 2.2rem;
+    font-weight: 500;
+    color: color-mix(in srgb, var(--color-teal) 25%, transparent);
+    display: block;
+    margin-bottom: 0.75rem;
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+
+  .step-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--color-ink);
+    display: block;
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.02em;
+  }
+
+  .step-desc {
+    font-size: 0.85rem;
+    color: var(--color-ink-muted);
+    line-height: 1.65;
+  }
+
+  /* ── Screenshots ── */
+  .screenshots {
+    padding: 3.5rem 0 4rem;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .phones {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 1.5rem;
+    margin-top: 2.5rem;
+  }
+
+  .phone {
+    position: relative;
+    background: #111417;
+    border: 5px solid #2a2f34;
+    border-radius: 34px;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .phone--center {
+    width: 200px;
+    height: 422px;
+    border-color: #363c42;
+    box-shadow: 0 28px 72px rgba(0,0,0,0.85), 0 4px 20px color-mix(in srgb, var(--color-teal) 12%, transparent);
+    z-index: 2;
+  }
+
+  .phone--left,
+  .phone--right {
+    width: 178px;
+    height: 378px;
+    opacity: 0.72;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.7);
+    z-index: 1;
+  }
+
+  .phone--left  { transform: rotate(-7deg) translateY(24px); }
+  .phone--right { transform: rotate(7deg)  translateY(24px); }
+
+  .phone-notch {
+    position: absolute;
+    top: 9px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 54px;
+    height: 15px;
+    background: #2a2f34;
+    border-radius: 100px;
+    z-index: 10;
+  }
+
+  /* Phone screen internals — p- prefix to avoid collisions */
+  .pscreen {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: #0e1113;
+    padding-top: 32px;
+    overflow: hidden;
+  }
+
+  .pmast {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 12px 6px;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: -0.02em;
+    border-bottom: 1px solid #272727;
+    margin-bottom: 8px;
+    flex-shrink: 0;
+    color: #ECEDEE;
+  }
+
+  .ptag {
+    font-family: var(--font-mono);
+    font-size: 7px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-teal);
+    font-weight: 400;
+  }
+
+  .pcard {
+    margin: 0 10px 7px;
+    background: #181c1f;
+    border: 1px solid #272727;
+    border-radius: 8px;
+    padding: 9px 11px;
+    flex-shrink: 0;
+  }
+
+  .pquote {
+    font-size: 9px;
+    font-weight: 500;
+    line-height: 1.45;
+    color: #ECEDEE;
+    margin-bottom: 6px;
+    font-style: italic;
+  }
+
+  .puser {
+    font-family: var(--font-mono);
+    font-size: 7px;
+    letter-spacing: 0.06em;
+    color: #39C5BB;
+  }
+
+  .pmeta {
+    font-family: var(--font-mono);
+    font-size: 6.5px;
+    color: #666;
+    letter-spacing: 0.04em;
+  }
+
+  .pdivider {
+    height: 1px;
+    background: #272727;
+    margin: 8px 0;
+    flex-shrink: 0;
+  }
+
+  .pchip {
+    font-family: var(--font-mono);
+    font-size: 6.5px;
+    letter-spacing: 0.05em;
+    color: #39C5BB;
+    background: color-mix(in srgb, #39C5BB 10%, transparent);
+    border: 1px solid color-mix(in srgb, #39C5BB 25%, transparent);
+    padding: 2px 6px;
+    border-radius: 100px;
+  }
+
+  .popt {
+    border: 1px solid #272727;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: #ECEDEE;
+    letter-spacing: 0.04em;
+    margin: 0 10px 5px;
+    flex-shrink: 0;
+  }
+
+  .popt--correct {
+    border-color: color-mix(in srgb, #39C5BB 50%, transparent);
+    background: color-mix(in srgb, #39C5BB 10%, transparent);
+    color: #39C5BB;
+  }
+
+  .pstreak {
+    margin: 0 10px 8px;
+    padding: 5px 9px;
+    background: color-mix(in srgb, #fba617 8%, transparent);
+    border: 1px solid color-mix(in srgb, #fba617 20%, transparent);
+    border-radius: 6px;
+    font-family: var(--font-mono);
+    font-size: 6.5px;
+    color: #fba617;
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
+  }
+
+  /* ── Social proof ── */
+  .social-proof {
+    padding: 3.5rem 0 3rem;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .reviews {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-top: 2.5rem;
+  }
+
+  .review {
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    padding: 1.5rem 1.5rem 1.25rem;
+  }
+
+  .review-stars {
+    color: #fba617;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.75rem;
+    display: block;
+  }
+
+  .review-text {
+    font-size: 0.85rem;
+    color: var(--color-ink);
+    line-height: 1.6;
+    margin-bottom: 1rem;
+  }
+
+  .review-author {
+    font-family: var(--font-mono);
+    font-size: 0.58rem;
+    letter-spacing: 0.08em;
+    color: var(--color-ink-faint);
+  }
+
   @media (max-width: 580px) {
     .hero { grid-template-columns: 1fr; padding: 3rem 0 3rem; }
     .hero-stickers { display: none; }
     .features { grid-template-columns: 1fr; margin-bottom: 3rem; }
+    .steps { grid-template-columns: 1fr; gap: 1.5rem; }
+    .phone--left, .phone--right { display: none; }
+    .phone--center { width: 180px; height: 380px; }
+    .reviews { grid-template-columns: 1fr; }
   }
 {% endblock %}
 
@@ -247,6 +512,7 @@
   </div>
 
   <div class="features animate-rise" style="animation-delay: 0.15s">
+    <span class="section-eyebrow" style="grid-column:1/-1;margin-bottom:1.5rem">How it works</span>
     <div class="feature">
       <span class="feature-tag">Quote</span>
       <span class="feature-name">Oh, that's getting posted.</span>
@@ -264,7 +530,114 @@
     </div>
   </div>
 
-  <div class="cta-footer animate-rise" style="animation-delay: 0.3s">
+  <!-- ── Screenshots ── -->
+  <div class="screenshots animate-rise" style="animation-delay: 0.25s">
+    <span class="section-eyebrow">See it in action</span>
+    <div class="phones">
+
+      <!-- Left phone: Feed -->
+      <div class="phone phone--left">
+        <div class="phone-notch"></div>
+        <div class="pscreen">
+          <div class="pmast">yapify</div>
+          <div class="pcard">
+            <p class="pquote">"That's a terrible idea. Obviously I'm in."</p>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px">
+              <span class="puser">@maya</span>
+              <span class="pmeta">3 witnesses</span>
+            </div>
+          </div>
+          <div class="pcard">
+            <p class="pquote">"I knew this would happen. I said nothing, but I knew."</p>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px">
+              <span class="puser">@tom</span>
+              <span class="pmeta">1 witness</span>
+            </div>
+          </div>
+          <div class="pcard" style="opacity:0.4">
+            <p class="pquote">"Sleep is a suggestion and I choose not to follow it."</p>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px">
+              <span class="puser">@alex</span>
+              <span class="pmeta">5 witnesses</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Center phone: Guess game -->
+      <div class="phone phone--center">
+        <div class="phone-notch"></div>
+        <div class="pscreen">
+          <div class="pmast">
+            <span style="color:#aaa;font-weight:400">&#8249;</span>
+            <span class="ptag">Guess the quote</span>
+          </div>
+          <div style="padding:10px 12px 8px;flex-shrink:0">
+            <span class="pmeta" style="display:block;margin-bottom:6px">WHO SAID THIS?</span>
+            <p style="font-size:11px;font-weight:600;line-height:1.45;letter-spacing:-0.02em;color:#ECEDEE;font-style:italic">"I don't need to be ready. I just need to show up and see what happens."</p>
+          </div>
+          <div class="pdivider"></div>
+          <div class="pstreak">4-day streak &middot; keep it going</div>
+          <div class="popt">@jake</div>
+          <div class="popt">@maya</div>
+          <div class="popt popt--correct">@tom &nbsp;&#10003;</div>
+          <div class="popt">@alex</div>
+        </div>
+      </div>
+
+      <!-- Right phone: Quote detail with witness CTA -->
+      <div class="phone phone--right">
+        <div class="phone-notch"></div>
+        <div class="pscreen">
+          <div class="pmast">
+            <span style="color:#aaa;font-weight:400">&#8249; Feed</span>
+            <span class="ptag">Quote</span>
+          </div>
+          <div style="padding:10px 12px 6px;flex-shrink:0">
+            <p style="font-size:10px;font-weight:600;line-height:1.45;color:#ECEDEE;margin-bottom:7px;font-style:italic">"I don't need sleep. I need answers and a snack."</p>
+            <div style="display:flex;align-items:center;gap:6px">
+              <span class="puser">@sarah</span>
+              <span class="pmeta">&middot; just now</span>
+            </div>
+          </div>
+          <div class="pdivider"></div>
+          <div style="padding:0 12px 8px;flex-shrink:0">
+            <span class="pmeta" style="display:block;margin-bottom:5px">WITNESSES</span>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="pchip">@jake</span>
+              <span class="pchip">@maya</span>
+            </div>
+          </div>
+          <div style="margin:0 10px;flex-shrink:0;background:#39C5BB;border-radius:6px;padding:7px;text-align:center;font-family:var(--font-mono);font-size:7.5px;font-weight:500;letter-spacing:0.07em;text-transform:uppercase;color:#0e1113">I was there</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Social proof ── -->
+  <div class="social-proof animate-rise" style="animation-delay: 0.3s">
+    <span class="section-eyebrow">What people are saying</span>
+    <div class="reviews">
+      <div class="review">
+        <span class="review-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
+        <p class="review-text">"My friend group has been playing this non-stop. Someone got exposed for saying they'd 'never eat fast food again' — literally the week after."</p>
+        <span class="review-author">@jess_m &middot; App Store</span>
+      </div>
+      <div class="review">
+        <span class="review-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
+        <p class="review-text">"The guessing game is so good. You think you know your friends and then you get it completely wrong."</p>
+        <span class="review-author">@dan_k &middot; App Store</span>
+      </div>
+      <div class="review">
+        <span class="review-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
+        <p class="review-text">"Finally an app that holds people accountable. My mate denied saying something and there were four witnesses. Beautiful."</p>
+        <span class="review-author">@ruby_t &middot; App Store</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="cta-footer animate-rise" style="animation-delay: 0.35s">
     <span class="cta-footer-label">Every group has a Yapify moment. The quote that made everyone lose it. The one nobody can forget.</span>
     <a href="#" class="cta-primary">
       <svg viewBox="0 0 24 24" fill="currentColor">
