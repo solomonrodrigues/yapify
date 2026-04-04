@@ -8,8 +8,8 @@ from django.utils import timezone
 from djangoapp.notifications.models import Event, Notification
 
 
-HIGH_TIER = {'friend_request', 'friend_accepted', 'new_quote', 'first_guess', 'quote_response'}
-LOW_TIER = {'quote_witnessed', 'quote_liked'}
+HIGH_TIER = {'friend_request', 'friend_accepted', 'new_quote', 'quote_response'}
+LOW_TIER = {'quote_witnessed', 'quote_liked', 'quote_guessed', 'you_were_guessed'}
 
 _MAX_NOTIFICATIONS_PER_USER = 500
 
@@ -19,7 +19,8 @@ _PUSH_TITLES = {
     'new_quote': 'New Quote About You',
     'quote_witnessed': 'Quote Witnessed',
     'quote_liked': 'Quote Liked',
-    'first_guess': 'First Guess Is In',
+    'quote_guessed': 'Quote Guessed',
+    'you_were_guessed': 'People Are Guessing You',
     'quote_response': 'Quote Response',
 }
 
@@ -29,7 +30,8 @@ _PUSH_BODIES = {
     'new_quote': '{name} posted a quote about you',
     'quote_witnessed': '{name} witnessed your quote',
     'quote_liked': '{name} liked your quote',
-    'first_guess': '{name} made the first guess on your quote',
+    'quote_guessed': '{name} guessed your quote',
+    'you_were_guessed': '{name} guessed it was you',
     'quote_response': '{name} responded to your quote',
 }
 
@@ -41,7 +43,7 @@ _ENGAGEMENT_SUBTITLES = [
     'Your group needs more quotes 📖',
 ]
 
-_SUBTITLE_TYPES = {'new_quote', 'quote_witnessed', 'quote_liked', 'first_guess'}
+_SUBTITLE_TYPES = {'new_quote', 'quote_witnessed', 'quote_liked', 'quote_guessed', 'you_were_guessed'}
 
 
 def _engagement_subtitle(event_type):

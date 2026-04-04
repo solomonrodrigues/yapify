@@ -1696,13 +1696,14 @@ class QuoteGuessCreateView(generics.CreateAPIView):
         guess = serializer.save()
         request.user.refresh_from_db(fields=['current_streak', 'longest_streak'])
 
-        # Notify the quote author on the very first guess (skips don't count)
-        if not guess.skipped and guess.quote.author != request.user:
-            is_first = not QuoteGuess.objects.filter(
-                quote=guess.quote, skipped=False
-            ).exclude(pk=guess.pk).exists()
-            if is_first:
-                emit_event('first_guess', actor=request.user, recipient=guess.quote.author, quote=guess.quote)
+        # Notify recipients on non-skip guesses (batched)
+        if not guess.skipped:
+            # Author sees all guesses
+            if guess.quote.author != request.user:
+                emit_event('quote_guessed', actor=request.user, recipient=guess.quote.author, quote=guess.quote)
+            # Quoted user only sees correct guesses (people who identified them)
+            if guess.correct and guess.quote.quoted_user and guess.quote.quoted_user != request.user:
+                emit_event('you_were_guessed', actor=request.user, recipient=guess.quote.quoted_user, quote=guess.quote)
 
         response_serializer = QuoteGuessCreateResponseSerializer(guess, context={'request': request})
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)

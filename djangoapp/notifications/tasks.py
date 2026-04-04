@@ -83,14 +83,19 @@ def flush_batched_push(recipient_id, notification_type, quote_id, window_start_i
     actor_name = recent_event.actor.get_full_name()
 
     _labels = {
-        'quote_witnessed': ('Quote Witnessed', 'witnessed'),
-        'quote_liked': ('Quote Liked', 'liked'),
+        'quote_witnessed': ('Quote Witnessed', '{name} witnessed your quote', '{count} people witnessed your quote'),
+        'quote_liked': ('Quote Liked', '{name} liked your quote', '{count} people liked your quote'),
+        'quote_guessed': ('Quote Guessed', '{name} guessed your quote', '{count} people guessed your quote'),
+        'you_were_guessed': ('People Are Guessing You', '{name} guessed it was you', '{count} people guessed it was you'),
     }
-    title, verb = _labels.get(notification_type, ('Notification', 'interacted with'))
+    title, singular_tmpl, plural_tmpl = _labels.get(
+        notification_type,
+        ('Notification', '{name} interacted with your quote', '{count} people interacted with your quote'),
+    )
     body = (
-        f'{actor_name} {verb} your quote'
+        singular_tmpl.format(name=actor_name)
         if count == 1
-        else f'{count} people {verb} your quote'
+        else plural_tmpl.format(count=count)
     )
 
     data = {'notification_type': notification_type}

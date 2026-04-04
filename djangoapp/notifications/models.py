@@ -8,7 +8,8 @@ NOTIFICATION_TYPES = [
     ('new_quote', 'New Quote About You'),
     ('quote_witnessed', 'Quote Witnessed'),
     ('quote_liked', 'Quote Liked'),
-    ('first_guess', 'First Guess on Your Quote'),
+    ('quote_guessed', 'Quote Guessed'),
+    ('you_were_guessed', 'You Were Guessed'),
     ('quote_response', 'Quote Confirmed or Denied'),
 ]
 
