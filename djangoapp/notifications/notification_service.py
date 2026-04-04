@@ -150,9 +150,9 @@ def process_event(event_id):
     if event.event_type == 'quote_response' and event.quote_id:
         response_val = event.quote.quoted_user_response
         if response_val == 'confirmed':
-            body = f'{event.actor.get_full_name()} confirmed your quote ✅'
+            body = f'{event.actor.get_full_name()} confirmed your quote'
         elif response_val == 'denied':
-            body = f'{event.actor.get_full_name()} denied your quote 🙅'
+            body = f'{event.actor.get_full_name()} disputed your quote'
 
     subtitle = _engagement_subtitle(event.event_type)
     recipient_id = event.recipient_id
