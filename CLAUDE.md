@@ -111,3 +111,18 @@ worker: python3 manage.py qcluster
 ```
 
 **The `worker` process must be started manually in Railway.** Railway only starts the `web` process automatically. To run the Django Q2 notification worker, add a second service in the Railway dashboard pointing to the same repo with start command `python3 manage.py qcluster`. Without it, events are enqueued but never processed — no notifications or push alerts will be sent.
+
+## Push Notifications Status
+
+| Platform | Status |
+|---|---|
+| iOS | Implementation complete. Requires end-to-end testing on a real device via an EAS development or production build. |
+| Android | Code wired up but **not functional** — Firebase not yet configured. |
+
+**Android setup required before push works on Android:**
+1. Create a Firebase project, register the Android app, download `google-services.json`
+2. Add `google-services.json` to the `yapify-app` project
+3. Configure FCM v1 credentials in the EAS dashboard (expo.dev → project → credentials)
+4. Build with EAS: `eas build --platform android`
+
+Push notifications are not testable in Expo Go on Android (SDK 53+) — a development build is required.
