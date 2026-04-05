@@ -66,6 +66,7 @@ from .error_codes import (
 )
 
 THROTTLE_SCOPE_AUTH = 'auth'
+THROTTLE_SCOPE_LOGIN = 'login'
 
 
 def get_optimized_quote_queryset(queryset, user):
@@ -395,7 +396,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     """Custom JWT login endpoint"""
     serializer_class = CustomTokenObtainPairSerializer
     throttle_classes = [ScopedRateThrottle]
-    throttle_scope = THROTTLE_SCOPE_AUTH
+    throttle_scope = THROTTLE_SCOPE_LOGIN
 
 
 class ProfileView(generics.RetrieveUpdateAPIView):

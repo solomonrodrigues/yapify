@@ -121,6 +121,7 @@ REST_FRAMEWORK = {
         'anon': '20/min',
         'user': '100/min',
         'auth': '5/min',
+        'login': '10/min',
     },
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
