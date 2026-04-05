@@ -1360,6 +1360,15 @@ class GuessableQuotesListView(OptimizedQuoteViewMixin, generics.ListAPIView):
             user=user
         ).values_list('quote_id', flat=True)
 
+        # Determine valid friends (active + verified) for guess option availability
+        valid_friend_ids = list(
+            user.get_valid_friends().values_list('id', flat=True)
+        )
+
+        # If the user has no valid friends there are no guess options for any quote
+        if not valid_friend_ids:
+            return Quote.objects.none()
+
         qs = (
             Quote.objects
             .filter(
@@ -1379,6 +1388,12 @@ class GuessableQuotesListView(OptimizedQuoteViewMixin, generics.ListAPIView):
             .order_by('-created_at')
             .distinct()
         )
+
+        # If the user has exactly one valid friend, quotes where that friend is
+        # the quoted_user leave zero wrong-answer candidates — exclude them.
+        if len(valid_friend_ids) == 1:
+            qs = qs.exclude(quoted_user_id=valid_friend_ids[0])
+
         return get_optimized_quote_queryset(qs, user)
 
 
