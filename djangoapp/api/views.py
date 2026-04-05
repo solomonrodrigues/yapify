@@ -742,6 +742,12 @@ class RespondToFriendRequestView(APIView):
         if action == 'accept':
             friendship.accept()
 
+            Notification.objects.filter(
+                friendship=friendship,
+                notification_type='friend_request',
+                recipient=request.user,
+            ).delete()
+
             emit_event('friend_accepted', actor=friendship.receiver, recipient=friendship.sender, friendship=friendship)
 
             return Response({
@@ -751,6 +757,13 @@ class RespondToFriendRequestView(APIView):
 
         elif action == 'reject':
             friendship.reject()
+
+            Notification.objects.filter(
+                friendship=friendship,
+                notification_type='friend_request',
+                recipient=request.user,
+            ).delete()
+
             return Response({
                 'message': 'Friend request rejected',
                 'friendship': FriendshipSerializer(friendship).data
