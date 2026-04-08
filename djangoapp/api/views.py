@@ -1,5 +1,8 @@
 # views.py
+import logging
 from datetime import timedelta
+
+logger = logging.getLogger(__name__)
 from django.db import transaction
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse
@@ -1462,7 +1465,10 @@ class QuoteAssignUserView(APIView):
         if not friendship_exists:
             return api_error(NOT_FRIENDS, "You can only assign a friend as the quoted user.", status.HTTP_400_BAD_REQUEST)
 
-        # Perform the swap
+        # Perform the swap.
+        # Intentionally not gated by QUOTE_EDIT_WINDOW: assigning a quoted_user is
+        # a one-way, non-reversible attribution action that doesn't alter the quote
+        # text. The 15-minute window applies to text edits only.
         quote.quoted_user = target_user
         quote.quoted_name = None
         quote.save(update_fields=['quoted_user', 'quoted_name', 'updated_at'])
@@ -1554,11 +1560,19 @@ class DeviceTokenView(APIView):
             token=token,
             defaults={'user': request.user, 'is_active': True, 'last_refreshed_at': timezone.now()},
         )
-        if not created and (not device_token.is_active or device_token.user_id != request.user.id):
-            device_token.user = request.user
-            device_token.is_active = True
-            device_token.last_refreshed_at = timezone.now()
-            device_token.save(update_fields=['user', 'is_active', 'last_refreshed_at', 'updated_at'])
+        if not created:
+            if device_token.user_id != request.user.id:
+                logger.warning(
+                    "DeviceToken ownership transfer: token %s from user %s to user %s",
+                    token[:20],
+                    device_token.user_id,
+                    request.user.id,
+                )
+            if not device_token.is_active or device_token.user_id != request.user.id:
+                device_token.user = request.user
+                device_token.is_active = True
+                device_token.last_refreshed_at = timezone.now()
+                device_token.save(update_fields=['user', 'is_active', 'last_refreshed_at', 'updated_at'])
 
         return Response(
             {'detail': 'Device registered.'},

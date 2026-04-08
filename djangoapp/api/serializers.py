@@ -733,10 +733,15 @@ class RecentSearchItemSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(serializers.DictField())
     def get_data(self, obj):
-        if obj.user_target_id and obj.user_target:
-            return MinimalUserSerializer(obj.user_target).data
-        if obj.quote_target_id and obj.quote_target:
-            return MinimalQuoteSerializer(obj.quote_target).data
+        if obj.user_target_id:
+            # user_target can be None if the FK was SET_NULL after deletion
+            if obj.user_target:
+                return MinimalUserSerializer(obj.user_target).data
+            return None
+        if obj.quote_target_id:
+            if obj.quote_target:
+                return MinimalQuoteSerializer(obj.quote_target).data
+            return None
         return None
 
 
