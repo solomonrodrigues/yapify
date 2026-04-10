@@ -592,6 +592,20 @@ class UserPostedQuotesListView(OptimizedQuoteViewMixin, generics.ListAPIView):
             .exclude(quoted_user__id__in=blocked_ids)
             .order_by('-created_at')
         )
+
+        # Don't expose unrevealed quotes to viewers who haven't guessed yet.
+        # Quotes with a registered quoted_user reveal the attribution in the response;
+        # only show those if the viewer has already guessed on them.
+        # Quotes with no registered quoted_user (quoted_name only) have nothing to
+        # hide and are always shown. Skipped when the viewer IS the author.
+        if target_user != user:
+            guessed_quote_ids = QuoteGuess.objects.filter(
+                user=user
+            ).values_list('quote_id', flat=True)
+            qs = qs.filter(
+                Q(quoted_user__isnull=True) | Q(id__in=guessed_quote_ids)
+            )
+
         return get_optimized_quote_queryset(qs, user)
 
 
@@ -629,6 +643,21 @@ class UserReceivedQuotesListView(OptimizedQuoteViewMixin, generics.ListAPIView):
             .exclude(author__id__in=blocked_ids)
             .order_by('-created_at')
         )
+
+        # Don't expose unrevealed quotes to viewers who haven't guessed yet.
+        # When viewing someone else's received feed the quoted_user is visible in
+        # every response, which spoils the guessing game. Only show a quote if the
+        # viewer wrote it themselves (they already know) or has already guessed on it.
+        # Skipped when the viewer IS the target user — the game never applies to the
+        # quoted user themselves.
+        if target_user != user:
+            guessed_quote_ids = QuoteGuess.objects.filter(
+                user=user
+            ).values_list('quote_id', flat=True)
+            qs = qs.filter(
+                Q(author=user) | Q(id__in=guessed_quote_ids)
+            )
+
         return get_optimized_quote_queryset(qs, user)
 
 
