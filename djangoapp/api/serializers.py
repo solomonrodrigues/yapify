@@ -1,4 +1,5 @@
 # serializers.py
+from datetime import timedelta
 from typing import List, Optional
 import random
 
@@ -204,11 +205,7 @@ class QuoteGuessSerializer(serializers.ModelSerializer):
 
         # enforce skip limit
         if data.get("skipped"):
-            from django.conf import settings
-            from django.utils.timezone import now
-            from datetime import timedelta
-
-            week_ago = now() - timedelta(days=7)
+            week_ago = timezone.now() - timedelta(days=7)
             skips_this_week = QuoteGuess.objects.filter(
                 user=user, skipped=True, created_at__gte=week_ago
             ).count()
@@ -436,7 +433,6 @@ class QuoteSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
             return 0
-        from datetime import timedelta
         used = QuoteGuess.objects.filter(
             user=request.user, skipped=True,
             created_at__gte=timezone.now() - timedelta(days=7),

@@ -2,7 +2,6 @@
 import logging
 from datetime import timedelta
 
-logger = logging.getLogger(__name__)
 from django.db import transaction
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse
@@ -67,6 +66,8 @@ from .error_codes import (
     CANNOT_REPORT_SELF, ALREADY_REPORTED, REPORT_NOT_FOUND,
     INVALID_TOKEN_FORMAT, NOT_FOUND, MISSING_PARAMETERS, INVALID_PARAMETER,
 )
+
+logger = logging.getLogger(__name__)
 
 THROTTLE_SCOPE_AUTH = 'auth'
 THROTTLE_SCOPE_LOGIN = 'login'
