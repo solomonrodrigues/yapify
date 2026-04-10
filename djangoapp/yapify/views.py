@@ -1,7 +1,7 @@
 from django.shortcuts import get_object_or_404, render
 from django.views.generic import TemplateView
 
-from djangoapp.yapify.models import User
+from djangoapp.yapify.models import AppVersionConfig, User
 
 _PROFILE_COLOR_HEX = {
     'RED': '#e53e3e',
@@ -23,6 +23,11 @@ _PROFILE_COLOR_HEX = {
 class LandingView(TemplateView):
     template_name = 'landing.html'
 
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['ios_store_url'] = AppVersionConfig.get_current().ios_store_url
+        return ctx
+
 
 class PrivacyView(TemplateView):
     template_name = 'privacy.html'
@@ -36,7 +41,9 @@ def invite_view(request, username):
     user = get_object_or_404(User, username=username, is_active=True)
     display_name = user.display_name or user.username
     color = _PROFILE_COLOR_HEX.get(user.profile_color, '#a855f7')
+    config = AppVersionConfig.get_current()
     return render(request, 'invite.html', {
         'display_name': display_name,
         'color': color,
+        'ios_store_url': config.ios_store_url,
     })
