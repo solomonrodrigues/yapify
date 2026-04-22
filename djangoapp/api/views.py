@@ -17,7 +17,8 @@ from django.shortcuts import get_object_or_404
 from django.conf import settings
 from django.db.models import F, Q, Max, Count, Exists, OuterRef, Prefetch
 from djangoapp.yapify.models import User, Friendship, Quote, QuoteWitness, QuoteLike, EmailVerification, \
-    QuoteGuess, RecentSearchItem, SavedQuote, HiddenQuote, PasswordReset, Report
+    QuoteGuess, RecentSearchItem, SavedQuote, HiddenQuote, PasswordReset, Report, \
+    Group, GroupMembership, GroupInvite, Block
 from djangoapp.notifications.models import Notification, Event, DeviceToken
 from djangoapp.notifications.notification_service import emit_event
 from .serializers import (
@@ -56,6 +57,13 @@ from .serializers import (
     MarkAllReadResponseSerializer,
     UnreadCountResponseSerializer,
     AppConfigResponseSerializer,
+    GroupSerializer,
+    GroupCreateSerializer,
+    GroupRenameSerializer,
+    GroupMemberSerializer,
+    GroupInviteSerializer,
+    GroupInviteCreateSerializer,
+    GroupInviteRespondSerializer,
 )
 from .utils import send_verification_email, normalize_email, send_password_reset_email
 from .exceptions import api_error
@@ -65,6 +73,8 @@ from .error_codes import (
     INVALID_QUOTE_RESPONSE, QUOTE_ALREADY_HAS_USER, FIELD_REQUIRED,
     CANNOT_REPORT_SELF, ALREADY_REPORTED, REPORT_NOT_FOUND,
     INVALID_TOKEN_FORMAT, NOT_FOUND, MISSING_PARAMETERS, INVALID_PARAMETER,
+    NOT_GROUP_MEMBER, NOT_GROUP_ADMIN, ALREADY_GROUP_MEMBER, INVITE_ALREADY_PENDING,
+    INVITE_NOT_FOUND, CANNOT_LEAVE_AS_CREATOR, CANNOT_KICK_CREATOR,
 )
 
 logger = logging.getLogger(__name__)
@@ -103,20 +113,19 @@ def get_optimized_quote_queryset(queryset, user):
 
 def get_visible_quote_or_404(user, quote_id):
     """
-    Return the quote with the given ID if the user is allowed to see it,
-    or raise Http404. Applies the same union-visibility rule used by the
-    main quote feed: the quote must be active and its author or quoted_user
-    must be in the requesting user's friend list (or the user must be the
-    author/quoted_user themselves).
+    Return the quote if the user is a member of its group (or is author/quoted_user),
+    and neither party is blocked.
     """
     blocked_ids = user.get_all_blocked_user_ids()
-    friends = user.get_friends().exclude(id__in=blocked_ids)
-    qs = Quote.objects.filter(is_active=True).filter(
-        Q(author__in=friends) |
-        Q(quoted_user__in=friends) |
-        Q(author=user) |
-        Q(quoted_user=user)
-    ).exclude(author__id__in=blocked_ids).exclude(quoted_user__id__in=blocked_ids)
+    user_group_ids = GroupMembership.objects.filter(user=user).values_list('group_id', flat=True)
+    qs = (
+        Quote.objects.filter(is_active=True)
+        .filter(
+            Q(group__in=user_group_ids) | Q(author=user) | Q(quoted_user=user)
+        )
+        .exclude(author__id__in=blocked_ids)
+        .exclude(quoted_user__id__in=blocked_ids)
+    )
     return get_object_or_404(qs, id=quote_id)
 
 
@@ -133,17 +142,12 @@ class OptimizedQuoteViewMixin:
                 created_at__gte=now - timedelta(days=7),
             ).count()
             context['remaining_skips'] = max(settings.QUOTE_GUESS_MAX_SKIPS_PER_WEEK - used, 0)
-            context['valid_friends'] = list(user.get_valid_friends())
         return context
 
 
 def get_optimized_user_queryset(queryset, current_user=None):
-    """Annotate User querysets with counts and prefetch friendships to eliminate N+1 queries."""
+    """Annotate User querysets with counts."""
     qs = queryset.annotate(
-        annotated_friends_count=(
-            Count('sent_friendships', filter=Q(sent_friendships__status='accepted'), distinct=True)
-            + Count('received_friendships', filter=Q(received_friendships__status='accepted'), distinct=True)
-        ),
         annotated_quotes_posted=Count(
             'posted_quotes', filter=Q(posted_quotes__is_active=True), distinct=True,
         ),
@@ -151,19 +155,6 @@ def get_optimized_user_queryset(queryset, current_user=None):
             'quotes_about_me', filter=Q(quotes_about_me__is_active=True), distinct=True,
         ),
     )
-    if current_user is not None:
-        qs = qs.prefetch_related(
-            Prefetch(
-                'sent_friendships',
-                queryset=Friendship.objects.filter(receiver=current_user),
-                to_attr='_friendship_with_me_sent',
-            ),
-            Prefetch(
-                'received_friendships',
-                queryset=Friendship.objects.filter(sender=current_user),
-                to_attr='_friendship_with_me_received',
-            ),
-        )
     return qs
 
 
@@ -427,97 +418,6 @@ class UserSearchView(generics.ListAPIView):
         return get_optimized_user_queryset(qs, current_user=user)
 
 
-class FriendListView(generics.ListAPIView):
-    """List and search user's friends"""
-    serializer_class = PublicUserListSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    pagination_class = StandardResultsPagination
-    filter_backends = [filters.SearchFilter]
-    search_fields = ['username', 'display_name']
-
-    def get_queryset(self):
-        user = self.request.user
-        blocked_ids = user.get_all_blocked_user_ids()
-        friends_queryset = user.get_friends().exclude(id__in=blocked_ids)
-
-        # Apply search if provided
-        search_query = self.request.query_params.get('search', '')
-        if search_query:
-            friends_queryset = friends_queryset.filter(
-                Q(username__icontains=search_query) |
-                Q(display_name__icontains=search_query)
-            )
-
-        return get_optimized_user_queryset(friends_queryset, current_user=user)
-
-
-class RecentQuotedFriendsView(generics.ListAPIView):
-    """List up to 5 most recent friends that the user has made quotes for"""
-    serializer_class = PublicUserListSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        user = self.request.user
-        blocked_ids = user.get_all_blocked_user_ids()
-
-        # Get user's friends who have been quoted, ordered by most recent quote
-        user_friends = user.get_friends().exclude(id__in=blocked_ids)
-
-        # Get friends that have been quoted by this user, ordered by most recent quote
-        quoted_friends = get_optimized_user_queryset(
-            user_friends.filter(
-                quotes_about_me__author=user,
-                quotes_about_me__is_active=True
-            ).annotate(
-                latest_quote_date=Max('quotes_about_me__created_at')
-            ).order_by('-latest_quote_date'),
-            current_user=user,
-        )[:5]
-
-        return quoted_friends
-
-
-class UserFriendsListView(generics.ListAPIView):
-    """
-    Get a paginated list of another user's friends.
-    """
-    serializer_class = PublicUserListSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    pagination_class = StandardResultsPagination
-    filter_backends = [filters.SearchFilter]
-    search_fields = ['username', 'display_name']
-    lookup_url_kwarg = 'user_id'
-
-    def get_target_user(self):
-        """
-        Resolve the user whose friends we want to list.
-        """
-        user_id = self.kwargs.get(self.lookup_url_kwarg)
-
-        try:
-            return User.objects.get(id=user_id, is_active=True)
-        except User.DoesNotExist:
-            raise NotFound("User not found.")
-
-    def get_queryset(self):
-        """
-        Return friends of the target user, optionally filtered by search.
-        """
-        target_user = self.get_target_user()
-        blocked_ids = self.request.user.get_all_blocked_user_ids()
-        friends_queryset = target_user.get_friends().exclude(id__in=blocked_ids)
-
-        # Apply search if provided (same behaviour as FriendListView)
-        search_query = self.request.query_params.get('search', '')
-        if search_query:
-            friends_queryset = friends_queryset.filter(
-                Q(username__icontains=search_query) |
-                Q(display_name__icontains=search_query)
-            )
-
-        return get_optimized_user_queryset(friends_queryset, current_user=self.request.user)
-
-
 class UserDetailView(OptimizedQuoteViewMixin, generics.RetrieveAPIView):
     """Retrieve public details about any user"""
     serializer_class = PublicUserSerializer
@@ -570,38 +470,30 @@ class UserPostedQuotesListView(OptimizedQuoteViewMixin, generics.ListAPIView):
         user_id = self.kwargs.get(self.lookup_url_kwarg)
         blocked_ids = user.get_all_blocked_user_ids()
 
-        # Return 404 if target user is blocked
         if user_id in blocked_ids:
             raise NotFound("User not found.")
 
         target_user = get_object_or_404(User, id=user_id, is_active=True)
 
-        # Must be friends with target user or be the target user
         if target_user != user:
-            is_friend = Friendship.objects.filter(
-                Q(sender=user, receiver=target_user, status='accepted') |
-                Q(sender=target_user, receiver=user, status='accepted')
-            ).exists()
-            if not is_friend:
-                raise exceptions.PermissionDenied("You can only view quotes of your friends.")
+            # Must share at least one group
+            user_group_ids = set(GroupMembership.objects.filter(user=user).values_list('group_id', flat=True))
+            target_group_ids = set(GroupMembership.objects.filter(user=target_user).values_list('group_id', flat=True))
+            if not user_group_ids & target_group_ids:
+                raise exceptions.PermissionDenied("You can only view quotes of group members.")
+
+        user_group_ids = GroupMembership.objects.filter(user=user).values_list('group_id', flat=True)
 
         qs = (
             Quote.objects
-            .filter(author=target_user, is_active=True)
+            .filter(author=target_user, is_active=True, group__in=user_group_ids)
             .exclude(hidden_quote_links__user=user)
             .exclude(quoted_user__id__in=blocked_ids)
             .order_by('-created_at')
         )
 
-        # Don't expose unrevealed quotes to viewers who haven't guessed yet.
-        # Quotes with a registered quoted_user reveal the attribution in the response;
-        # only show those if the viewer has already guessed on them.
-        # Quotes with no registered quoted_user (quoted_name only) have nothing to
-        # hide and are always shown. Skipped when the viewer IS the author.
         if target_user != user:
-            guessed_quote_ids = QuoteGuess.objects.filter(
-                user=user
-            ).values_list('quote_id', flat=True)
+            guessed_quote_ids = QuoteGuess.objects.filter(user=user).values_list('quote_id', flat=True)
             qs = qs.filter(
                 Q(quoted_user__isnull=True) | Q(id__in=guessed_quote_ids)
             )
@@ -621,188 +513,34 @@ class UserReceivedQuotesListView(OptimizedQuoteViewMixin, generics.ListAPIView):
         user_id = self.kwargs.get(self.lookup_url_kwarg)
         blocked_ids = user.get_all_blocked_user_ids()
 
-        # Return 404 if target user is blocked
         if user_id in blocked_ids:
             raise NotFound("User not found.")
 
         target_user = get_object_or_404(User, id=user_id, is_active=True)
 
-        # Must be friends with target user or be the target user
         if target_user != user:
-            is_friend = Friendship.objects.filter(
-                Q(sender=user, receiver=target_user, status='accepted') |
-                Q(sender=target_user, receiver=user, status='accepted')
-            ).exists()
-            if not is_friend:
-                raise exceptions.PermissionDenied("You can only view quotes of your friends.")
+            user_group_ids = set(GroupMembership.objects.filter(user=user).values_list('group_id', flat=True))
+            target_group_ids = set(GroupMembership.objects.filter(user=target_user).values_list('group_id', flat=True))
+            if not user_group_ids & target_group_ids:
+                raise exceptions.PermissionDenied("You can only view quotes of group members.")
+
+        user_group_ids = GroupMembership.objects.filter(user=user).values_list('group_id', flat=True)
 
         qs = (
             Quote.objects
-            .filter(quoted_user=target_user, is_active=True)
+            .filter(quoted_user=target_user, is_active=True, group__in=user_group_ids)
             .exclude(hidden_quote_links__user=user)
             .exclude(author__id__in=blocked_ids)
             .order_by('-created_at')
         )
 
-        # Don't expose unrevealed quotes to viewers who haven't guessed yet.
-        # When viewing someone else's received feed the quoted_user is visible in
-        # every response, which spoils the guessing game. Only show a quote if the
-        # viewer wrote it themselves (they already know) or has already guessed on it.
-        # Skipped when the viewer IS the target user — the game never applies to the
-        # quoted user themselves.
         if target_user != user:
-            guessed_quote_ids = QuoteGuess.objects.filter(
-                user=user
-            ).values_list('quote_id', flat=True)
+            guessed_quote_ids = QuoteGuess.objects.filter(user=user).values_list('quote_id', flat=True)
             qs = qs.filter(
                 Q(author=user) | Q(id__in=guessed_quote_ids)
             )
 
         return get_optimized_quote_queryset(qs, user)
-
-
-class FriendRequestListView(generics.ListAPIView):
-    """List pending friend requests"""
-    serializer_class = FriendshipSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    pagination_class = StandardResultsPagination
-
-    def get_queryset(self):
-        return self.request.user.get_pending_friend_requests().select_related('sender', 'receiver')
-
-
-@extend_schema(
-    summary="Send a friend request",
-    request=FriendRequestSerializer,
-    responses={201: FriendshipWithMessageSerializer},
-    tags=["friends"],
-)
-class SendFriendRequestView(generics.CreateAPIView):
-    """Send friend request"""
-    serializer_class = FriendRequestSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    @transaction.atomic
-    def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        friendship = serializer.save()
-
-        emit_event('friend_request', actor=friendship.sender, recipient=friendship.receiver, friendship=friendship)
-
-        return Response({
-            'message': 'Friend request sent successfully',
-            'friendship': FriendshipSerializer(friendship).data
-        }, status=status.HTTP_201_CREATED)
-
-
-@extend_schema(
-    summary="Cancel a sent friend request",
-    responses={204: None},
-    tags=["friends"],
-)
-class CancelFriendRequestView(APIView):
-    """Cancel outgoing pending friend request."""
-    permission_classes = [permissions.IsAuthenticated]
-
-    @transaction.atomic
-    def delete(self, request, user_id, *args, **kwargs):
-        friendship = Friendship.objects.select_for_update().filter(
-            sender=request.user,
-            receiver__id=user_id,
-            status='pending'
-        ).first()
-
-        if not friendship:
-            return api_error(NO_PENDING_REQUEST, "No outgoing pending request to this user.", status.HTTP_404_NOT_FOUND)
-
-        # Delete any pending unprocessed events for this friendship so the worker
-        # doesn't create a notification after the friendship is gone.
-        Event.objects.filter(
-            friendship=friendship,
-            event_type='friend_request',
-            processed_at__isnull=True,
-        ).delete()
-
-        # Friendship FK on Notification is SET_NULL, so explicitly clean up before deleting.
-        Notification.objects.filter(friendship=friendship, notification_type='friend_request').delete()
-
-        friendship.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
-
-@extend_schema(
-    summary="Unfriend a user",
-    responses={204: None},
-    tags=["friends"],
-)
-class UnfriendView(APIView):
-    """Unfriend (remove accepted friendship)."""
-    permission_classes = [permissions.IsAuthenticated]
-
-    @transaction.atomic
-    def delete(self, request, user_id, *args, **kwargs):
-        friendship = Friendship.objects.select_for_update().filter(
-            Q(sender=request.user, receiver__id=user_id) | Q(sender__id=user_id, receiver=request.user),
-            status='accepted'
-        ).first()
-
-        if not friendship:
-            return api_error(NOT_FRIENDS, "No accepted friendship found with this user.", status.HTTP_404_NOT_FOUND)
-
-        # Friendship FK on Notification is SET_NULL, so explicitly clean up before deleting.
-        Notification.objects.filter(friendship=friendship).delete()
-
-        friendship.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
-
-@extend_schema(
-    summary="Accept or reject a friend request",
-    request=FriendRequestActionSerializer,
-    responses={200: FriendshipWithMessageSerializer},
-    tags=["friends"],
-)
-class RespondToFriendRequestView(APIView):
-    """Accept or reject friend request"""
-    permission_classes = [permissions.IsAuthenticated]
-
-    @transaction.atomic
-    def post(self, request, user_id):
-        friendship = get_object_or_404(Friendship, sender_id=user_id, receiver=request.user)
-        action = request.data.get('action')
-
-        if action == 'accept':
-            friendship.accept()
-
-            Notification.objects.filter(
-                friendship=friendship,
-                notification_type='friend_request',
-                recipient=request.user,
-            ).delete()
-
-            emit_event('friend_accepted', actor=friendship.receiver, recipient=friendship.sender, friendship=friendship)
-
-            return Response({
-                'message': 'Friend request accepted',
-                'friendship': FriendshipSerializer(friendship).data
-            })
-
-        elif action == 'reject':
-            friendship.reject()
-
-            Notification.objects.filter(
-                friendship=friendship,
-                notification_type='friend_request',
-                recipient=request.user,
-            ).delete()
-
-            return Response({
-                'message': 'Friend request rejected',
-                'friendship': FriendshipSerializer(friendship).data
-            })
-
-        return api_error(INVALID_ACTION, "Invalid action.", status.HTTP_400_BAD_REQUEST)
 
 
 class BlockUserView(APIView):
@@ -824,30 +562,12 @@ class BlockUserView(APIView):
 
         target_user = get_object_or_404(User, id=user_id, is_active=True)
 
-        # Check if there's an existing friendship in either direction
-        existing = Friendship.objects.filter(
-            Q(sender=request.user, receiver=target_user) |
-            Q(sender=target_user, receiver=request.user)
-        ).first()
+        _, created = Block.objects.get_or_create(blocker=request.user, blocked=target_user)
 
-        if existing:
-            if existing.status == 'blocked' and existing.sender == request.user:
-                return Response(
-                    {'detail': 'User is already blocked.'},
-                    status=status.HTTP_200_OK
-                )
-            # Delete the existing friendship and create a new blocked one
-            existing.delete()
+        if not created:
+            return Response({'detail': 'User is already blocked.'}, status=status.HTTP_200_OK)
 
-        # Create blocked friendship (blocker is sender)
-        Friendship.objects.create(
-            sender=request.user,
-            receiver=target_user,
-            status='blocked'
-        )
-
-        # Delete pending unprocessed events between these users so the worker
-        # doesn't produce notifications across a block.
+        # Delete pending unprocessed events between these users
         Event.objects.filter(
             Q(actor=request.user, recipient=target_user) |
             Q(actor=target_user, recipient=request.user),
@@ -866,20 +586,11 @@ class BlockUserView(APIView):
         """Unblock a user."""
         target_user = get_object_or_404(User, id=user_id, is_active=True)
 
-        # Only the blocker can unblock
-        deleted_count, _ = Friendship.objects.filter(
-            sender=request.user,
-            receiver=target_user,
-            status='blocked'
-        ).delete()
+        deleted_count, _ = Block.objects.filter(blocker=request.user, blocked=target_user).delete()
 
         if deleted_count:
             return Response({'detail': 'User unblocked.'}, status=status.HTTP_200_OK)
-        else:
-            return Response(
-                {'detail': 'User was not blocked.'},
-                status=status.HTTP_200_OK
-            )
+        return Response({'detail': 'User was not blocked.'}, status=status.HTTP_200_OK)
 
 
 class BlockedUsersListView(generics.ListAPIView):
@@ -890,7 +601,7 @@ class BlockedUsersListView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        return get_optimized_user_queryset(user.get_blocked_users(), current_user=user)
+        return get_optimized_user_queryset(user.get_blocked_users())
 
 
 class QuoteListCreateView(OptimizedQuoteViewMixin, generics.ListCreateAPIView):
@@ -902,18 +613,19 @@ class QuoteListCreateView(OptimizedQuoteViewMixin, generics.ListCreateAPIView):
     def get_queryset(self):
         user = self.request.user
         blocked_ids = user.get_all_blocked_user_ids()
-        friends = user.get_friends().exclude(id__in=blocked_ids)
+        group_id = self.request.query_params.get('group_id')
+        user_group_ids = GroupMembership.objects.filter(user=user).values_list('group_id', flat=True)
 
-        # Get quotes from friends and public quotes, excluding blocked users
+        qs = Quote.objects.filter(is_active=True)
+        if group_id:
+            if int(group_id) not in list(user_group_ids):
+                return Quote.objects.none()
+            qs = qs.filter(group_id=group_id)
+        else:
+            qs = qs.filter(group__in=user_group_ids)
+
         qs = (
-            Quote.objects
-            .filter(
-                Q(author__in=friends) |
-                Q(quoted_user__in=friends) |
-                Q(author=user) |
-                Q(quoted_user=user)
-            )
-            .filter(is_active=True)
+            qs
             .exclude(hidden_quote_links__user=user)
             .exclude(author__id__in=blocked_ids)
             .exclude(quoted_user__id__in=blocked_ids)
@@ -964,17 +676,12 @@ class QuoteSearchView(OptimizedQuoteViewMixin, generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user
         blocked_ids = user.get_all_blocked_user_ids()
-        friends = user.get_friends().exclude(id__in=blocked_ids)
+        user_group_ids = GroupMembership.objects.filter(user=user).values_list('group_id', flat=True)
 
         qs = (
             Quote.objects
             .filter(is_active=True)
-            .filter(
-                Q(author__in=friends) |
-                Q(quoted_user__in=friends) |
-                Q(author=user) |
-                Q(quoted_user=user)
-            )
+            .filter(group__in=user_group_ids)
             .exclude(hidden_quote_links__user=user)
             .exclude(author__id__in=blocked_ids)
             .exclude(quoted_user__id__in=blocked_ids)
@@ -1040,16 +747,13 @@ class QuoteDetailView(OptimizedQuoteViewMixin, generics.RetrieveUpdateDestroyAPI
     def get_queryset(self):
         user = self.request.user
         blocked_ids = user.get_all_blocked_user_ids()
-        friends = user.get_friends().exclude(id__in=blocked_ids)
+        user_group_ids = GroupMembership.objects.filter(user=user).values_list('group_id', flat=True)
 
         qs = (
             Quote.objects
             .filter(is_active=True)
             .filter(
-                Q(author__in=friends) |
-                Q(quoted_user__in=friends) |
-                Q(author=user) |
-                Q(quoted_user=user)
+                Q(group__in=user_group_ids) | Q(author=user) | Q(quoted_user=user)
             )
             .exclude(author__id__in=blocked_ids)
             .exclude(quoted_user__id__in=blocked_ids)
@@ -1386,48 +1090,40 @@ class GuessableQuotesListView(OptimizedQuoteViewMixin, generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user
         blocked_ids = user.get_all_blocked_user_ids()
-        friends = user.get_friends().exclude(id__in=blocked_ids)
+        user_group_ids = GroupMembership.objects.filter(user=user).values_list('group_id', flat=True)
 
-        # Get IDs of quotes user has already guessed
-        guessed_quote_ids = QuoteGuess.objects.filter(
-            user=user
-        ).values_list('quote_id', flat=True)
-
-        # Determine valid friends (active + verified) for guess option availability
-        valid_friend_ids = list(
-            user.get_valid_friends().values_list('id', flat=True)
-        )
-
-        # If the user has no valid friends there are no guess options for any quote
-        if not valid_friend_ids:
-            return Quote.objects.none()
+        guessed_quote_ids = QuoteGuess.objects.filter(user=user).values_list('quote_id', flat=True)
 
         qs = (
             Quote.objects
             .filter(
                 is_active=True,
-                quoted_user__isnull=False,  # Must have a real user to guess
+                quoted_user__isnull=False,
+                group__in=user_group_ids,
             )
-            .filter(
-                Q(author__in=friends) |
-                Q(quoted_user__in=friends)
-            )
-            .exclude(author=user)  # Can't guess own quotes
-            .exclude(quoted_user=user)  # Can't guess quotes about yourself
-            .exclude(id__in=guessed_quote_ids)  # Haven't guessed yet
-            .exclude(hidden_quote_links__user=user)  # Not hidden
-            .exclude(author__id__in=blocked_ids)  # Not from blocked users
-            .exclude(quoted_user__id__in=blocked_ids)  # Not about blocked users
+            .exclude(author=user)
+            .exclude(quoted_user=user)
+            .exclude(id__in=guessed_quote_ids)
+            .exclude(hidden_quote_links__user=user)
+            .exclude(author__id__in=blocked_ids)
+            .exclude(quoted_user__id__in=blocked_ids)
             .order_by('-created_at')
             .distinct()
         )
 
-        # If the user has exactly one valid friend, quotes where that friend is
-        # the quoted_user leave zero wrong-answer candidates — exclude them.
-        if len(valid_friend_ids) == 1:
-            qs = qs.exclude(quoted_user_id=valid_friend_ids[0])
+        # Filter out quotes where there aren't enough other group members for guess options
+        # (need at least 1 wrong-answer candidate besides quoted_user in the group)
+        valid_qs = []
+        for quote in qs:
+            other_members = GroupMembership.objects.filter(
+                group=quote.group
+            ).exclude(user=user).exclude(user_id=quote.quoted_user_id).filter(
+                user__is_active=True, user__is_email_verified=True
+            ).exists()
+            if other_members:
+                valid_qs.append(quote.id)
 
-        return get_optimized_quote_queryset(qs, user)
+        return get_optimized_quote_queryset(qs.filter(id__in=valid_qs), user)
 
 
 class RespondableQuotesListView(OptimizedQuoteViewMixin, generics.ListAPIView):
@@ -1487,14 +1183,6 @@ class QuoteAssignUserView(APIView):
 
         target_user = get_object_or_404(User, id=user_id, is_active=True)
 
-        # Must be friends
-        friendship_exists = Friendship.objects.filter(
-            Q(sender=request.user, receiver=target_user, status='accepted') |
-            Q(sender=target_user, receiver=request.user, status='accepted')
-        ).exists()
-        if not friendship_exists:
-            return api_error(NOT_FRIENDS, "You can only assign a friend as the quoted user.", status.HTTP_400_BAD_REQUEST)
-
         # Perform the swap.
         # Intentionally not gated by QUOTE_EDIT_WINDOW: assigning a quoted_user is
         # a one-way, non-reversible attribution action that doesn't alter the quote
@@ -1535,7 +1223,7 @@ class NotificationListView(generics.ListAPIView):
     def get_queryset(self):
         return (
             self.request.user.notifications
-            .select_related('quote', 'friendship')
+            .select_related('quote', 'group_invite', 'group_invite__group')
         )
 
     def list(self, request, *args, **kwargs):
@@ -1831,18 +1519,6 @@ class QuoteGuessesListView(generics.ListAPIView):
             .filter(quote=quote)
             .exclude(user__id__in=blocked_ids)
             .select_related('user', 'guessed_user')
-            .prefetch_related(
-                Prefetch(
-                    'user__sent_friendships',
-                    queryset=Friendship.objects.filter(receiver=self.request.user),
-                    to_attr='_friendship_with_requester_sent',
-                ),
-                Prefetch(
-                    'user__received_friendships',
-                    queryset=Friendship.objects.filter(sender=self.request.user),
-                    to_attr='_friendship_with_requester_received',
-                ),
-            )
             .order_by('-created_at')
         )
 
@@ -1897,20 +1573,21 @@ class RecentSearchView(APIView):
         now = timezone.now()
         user = request.user
 
-        # Enforce visibility: users can only record searches for targets they
-        # can actually see, preventing search-history pollution via ID guessing.
+        # Enforce visibility: users can only record searches for targets they can actually see.
         if isinstance(target, User):
-            if target.pk != user.pk and not user.get_friends().filter(pk=target.pk).exists():
-                return api_error(NOT_FOUND, "Not found.", status.HTTP_404_NOT_FOUND)
+            if target.pk != user.pk:
+                blocked_ids = user.get_all_blocked_user_ids()
+                user_group_ids = set(GroupMembership.objects.filter(user=user).values_list('group_id', flat=True))
+                target_group_ids = set(GroupMembership.objects.filter(user=target).values_list('group_id', flat=True))
+                if target.id in blocked_ids or not (user_group_ids & target_group_ids):
+                    return api_error(NOT_FOUND, "Not found.", status.HTTP_404_NOT_FOUND)
         else:  # Quote
             blocked_ids = user.get_all_blocked_user_ids()
-            friends = user.get_friends().exclude(id__in=blocked_ids)
+            user_group_ids = GroupMembership.objects.filter(user=user).values_list('group_id', flat=True)
             is_visible = Quote.objects.filter(
                 pk=target.pk,
                 is_active=True,
-            ).filter(
-                Q(author__in=friends) | Q(quoted_user__in=friends) |
-                Q(author=user) | Q(quoted_user=user)
+                group__in=user_group_ids,
             ).exclude(author__id__in=blocked_ids).exclude(quoted_user__id__in=blocked_ids).exists()
             if not is_visible:
                 return api_error(NOT_FOUND, "Not found.", status.HTTP_404_NOT_FOUND)
@@ -2114,6 +1791,234 @@ class ReportUserView(APIView):
         if not deleted_count:
             return api_error(REPORT_NOT_FOUND, "You have not reported this user.", status.HTTP_400_BAD_REQUEST)
 
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class GroupListCreateView(generics.ListCreateAPIView):
+    """List user's groups / create a new group."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return GroupCreateSerializer
+        return GroupSerializer
+
+    def get_queryset(self):
+        from django.db.models import Count
+        user = self.request.user
+        group_ids = GroupMembership.objects.filter(user=user).values_list('group_id', flat=True)
+        return (
+            Group.objects.filter(id__in=group_ids)
+            .annotate(annotated_member_count=Count('memberships', distinct=True))
+            .select_related('created_by')
+            .order_by('name')
+        )
+
+    def list(self, request, *args, **kwargs):
+        qs = self.get_queryset()
+        serializer = GroupSerializer(qs, many=True, context={'request': request})
+        return Response(serializer.data)
+
+    @transaction.atomic
+    def post(self, request, *args, **kwargs):
+        serializer = GroupCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        group = Group.objects.create(
+            name=serializer.validated_data['name'],
+            created_by=request.user,
+        )
+        GroupMembership.objects.create(group=group, user=request.user)
+        return Response(
+            GroupSerializer(group, context={'request': request}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class GroupDetailView(APIView):
+    """Retrieve / rename (admin) / delete (admin) a group."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def _get_group_and_membership(self, request, group_id):
+        group = get_object_or_404(Group, id=group_id)
+        membership = GroupMembership.objects.filter(group=group, user=request.user).first()
+        if not membership:
+            raise exceptions.PermissionDenied("You are not a member of this group.")
+        return group, membership
+
+    def get(self, request, group_id):
+        from django.db.models import Count
+        group = get_object_or_404(Group, id=group_id)
+        if not GroupMembership.objects.filter(group=group, user=request.user).exists():
+            raise exceptions.PermissionDenied("You are not a member of this group.")
+        group.annotated_member_count = group.memberships.count()
+        return Response(GroupSerializer(group, context={'request': request}).data)
+
+    @transaction.atomic
+    def patch(self, request, group_id):
+        group, _ = self._get_group_and_membership(request, group_id)
+        if group.created_by_id != request.user.id:
+            return api_error(NOT_GROUP_ADMIN, "Only the group admin can rename the group.", status.HTTP_403_FORBIDDEN)
+        serializer = GroupRenameSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        group.name = serializer.validated_data['name']
+        group.save(update_fields=['name', 'updated_at'])
+        group.annotated_member_count = group.memberships.count()
+        return Response(GroupSerializer(group, context={'request': request}).data)
+
+    @transaction.atomic
+    def delete(self, request, group_id):
+        group, _ = self._get_group_and_membership(request, group_id)
+        if group.created_by_id != request.user.id:
+            return api_error(NOT_GROUP_ADMIN, "Only the group admin can delete the group.", status.HTTP_403_FORBIDDEN)
+        group.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class GroupMembersListView(generics.ListAPIView):
+    """List members of a group."""
+    serializer_class = GroupMemberSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardResultsPagination
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['user__username', 'user__display_name']
+
+    def get_queryset(self):
+        group_id = self.kwargs['group_id']
+        group = get_object_or_404(Group, id=group_id)
+        if not GroupMembership.objects.filter(group=group, user=self.request.user).exists():
+            raise exceptions.PermissionDenied("You are not a member of this group.")
+        return GroupMembership.objects.filter(group=group).select_related('user').order_by('joined_at')
+
+
+class GroupKickMemberView(APIView):
+    """Kick a member from a group (admin only)."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    @transaction.atomic
+    def delete(self, request, group_id, user_id):
+        group = get_object_or_404(Group, id=group_id)
+        if not GroupMembership.objects.filter(group=group, user=request.user).exists():
+            raise exceptions.PermissionDenied("You are not a member of this group.")
+        if group.created_by_id != request.user.id:
+            return api_error(NOT_GROUP_ADMIN, "Only the group admin can kick members.", status.HTTP_403_FORBIDDEN)
+        if user_id == request.user.id:
+            return api_error(CANNOT_KICK_CREATOR, "The group creator cannot be kicked.", status.HTTP_400_BAD_REQUEST)
+        deleted, _ = GroupMembership.objects.filter(group=group, user_id=user_id).delete()
+        if not deleted:
+            return api_error(NOT_GROUP_MEMBER, "User is not a member of this group.", status.HTTP_404_NOT_FOUND)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class GroupLeaveView(APIView):
+    """Leave a group."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request, group_id):
+        group = get_object_or_404(Group, id=group_id)
+        if group.created_by_id == request.user.id:
+            return api_error(CANNOT_LEAVE_AS_CREATOR, "The creator cannot leave — delete the group instead.", status.HTTP_400_BAD_REQUEST)
+        deleted, _ = GroupMembership.objects.filter(group=group, user=request.user).delete()
+        if not deleted:
+            return api_error(NOT_GROUP_MEMBER, "You are not a member of this group.", status.HTTP_404_NOT_FOUND)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class GroupInviteView(APIView):
+    """Invite a user to a group (any member)."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request, group_id):
+        group = get_object_or_404(Group, id=group_id)
+        if not GroupMembership.objects.filter(group=group, user=request.user).exists():
+            raise exceptions.PermissionDenied("You are not a member of this group.")
+
+        serializer = GroupInviteCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        target_user = serializer.validated_data['user_id']
+
+        if GroupMembership.objects.filter(group=group, user=target_user).exists():
+            return api_error(ALREADY_GROUP_MEMBER, "User is already a member of this group.", status.HTTP_400_BAD_REQUEST)
+
+        if GroupInvite.objects.filter(group=group, invited_user=target_user, status='pending').exists():
+            return api_error(INVITE_ALREADY_PENDING, "A pending invite already exists for this user.", status.HTTP_400_BAD_REQUEST)
+
+        invite = GroupInvite.objects.create(
+            group=group,
+            invited_user=target_user,
+            invited_by=request.user,
+        )
+
+        from djangoapp.notifications.notification_service import emit_event
+        emit_event('group_invite', actor=request.user, recipient=target_user, group_invite=invite)
+
+        return Response(
+            GroupInviteSerializer(invite, context={'request': request}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class GroupInviteListView(generics.ListAPIView):
+    """List pending group invites received by the current user."""
+    serializer_class = GroupInviteSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardResultsPagination
+
+    def get_queryset(self):
+        return (
+            GroupInvite.objects
+            .filter(invited_user=self.request.user, status='pending')
+            .select_related('group', 'group__created_by', 'invited_by')
+            .order_by('-created_at')
+        )
+
+
+class GroupInviteRespondView(APIView):
+    """Accept or decline a group invite."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request, invite_id):
+        invite = get_object_or_404(GroupInvite, id=invite_id, invited_user=request.user, status='pending')
+
+        serializer = GroupInviteRespondSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        action = serializer.validated_data['action']
+
+        from django.utils import timezone as tz
+        invite.responded_at = tz.now()
+
+        if action == 'accept':
+            invite.status = 'accepted'
+            invite.save(update_fields=['status', 'responded_at'])
+            GroupMembership.objects.get_or_create(
+                group=invite.group,
+                user=request.user,
+                defaults={'invited_by': invite.invited_by},
+            )
+            from djangoapp.notifications.notification_service import emit_event
+            emit_event('group_invite_accepted', actor=request.user, recipient=invite.invited_by, group_invite=invite)
+        else:
+            invite.status = 'declined'
+            invite.save(update_fields=['status', 'responded_at'])
+
+        return Response(GroupInviteSerializer(invite, context={'request': request}).data)
+
+
+class GroupInviteCancelView(APIView):
+    """Cancel a sent invite (inviter or admin)."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    @transaction.atomic
+    def delete(self, request, invite_id):
+        invite = get_object_or_404(GroupInvite, id=invite_id, status='pending')
+        group = invite.group
+        is_inviter = invite.invited_by_id == request.user.id
+        is_admin = group.created_by_id == request.user.id
+        if not (is_inviter or is_admin):
+            raise exceptions.PermissionDenied("You cannot cancel this invite.")
+        invite.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

@@ -29,22 +29,11 @@ urlpatterns = [
     # Users
     path('users/search/', views.UserSearchView.as_view(), name='user_search'),
     path('users/<int:user_id>/', views.UserDetailView.as_view(), name='user-detail'),
-    path('users/<int:user_id>/friends/', views.UserFriendsListView.as_view(), name='user-friends-list'),
     path('users/<int:user_id>/quotes/posted/', views.UserPostedQuotesListView.as_view(), name='user-posted-quotes'),
     path('users/<int:user_id>/quotes/received/', views.UserReceivedQuotesListView.as_view(), name='user-received-quotes'),
 
     # Recent searches
     path("recents/", views.RecentSearchView.as_view(), name="recent-search"),
-
-    # Friends
-    path('friends/', views.FriendListView.as_view(), name='friend_list'),
-    path('friends/recent-quoted/', views.RecentQuotedFriendsView.as_view(), name='recent_quoted_friends'),
-    path('friends/requests/', views.FriendRequestListView.as_view(), name='friend_requests'),
-    path('friends/send/', views.SendFriendRequestView.as_view(), name='send_friend_request'),
-    path('friends/<int:user_id>/cancel/', views.CancelFriendRequestView.as_view(), name='cancel_friend_request'),
-    path('friends/<int:user_id>/unfriend/', views.UnfriendView.as_view(), name='unfriend'),
-    path('friends/<int:user_id>/respond/', views.RespondToFriendRequestView.as_view(),
-         name='respond_friend_request'),
 
     # Blocking
     path('users/<int:user_id>/block/', views.BlockUserView.as_view(), name='block-user'),
@@ -85,4 +74,15 @@ urlpatterns = [
 
     # Devices
     path('devices/', views.DeviceTokenView.as_view(), name='device-tokens'),
+
+    # Groups
+    path('groups/', views.GroupListCreateView.as_view(), name='group-list-create'),
+    path('groups/invites/', views.GroupInviteListView.as_view(), name='group-invite-list'),
+    path('groups/invites/<int:invite_id>/respond/', views.GroupInviteRespondView.as_view(), name='group-invite-respond'),
+    path('groups/invites/<int:invite_id>/', views.GroupInviteCancelView.as_view(), name='group-invite-cancel'),
+    path('groups/<int:group_id>/', views.GroupDetailView.as_view(), name='group-detail'),
+    path('groups/<int:group_id>/members/', views.GroupMembersListView.as_view(), name='group-members'),
+    path('groups/<int:group_id>/members/<int:user_id>/', views.GroupKickMemberView.as_view(), name='group-kick-member'),
+    path('groups/<int:group_id>/leave/', views.GroupLeaveView.as_view(), name='group-leave'),
+    path('groups/<int:group_id>/invite/', views.GroupInviteView.as_view(), name='group-invite'),
 ]
