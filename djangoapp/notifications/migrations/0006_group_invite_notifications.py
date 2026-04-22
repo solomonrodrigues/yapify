@@ -18,10 +18,6 @@ class Migration(migrations.Migration):
             model_name='event',
             name='friendship',
         ),
-        migrations.AlterUniqueTogether(
-            name='notification',
-            unique_together={('recipient', 'notification_type', 'quote', 'group_invite')},
-        ),
         migrations.AddField(
             model_name='event',
             name='group_invite',
@@ -31,6 +27,10 @@ class Migration(migrations.Migration):
             model_name='notification',
             name='group_invite',
             field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='yapify.groupinvite'),
+        ),
+        migrations.AlterUniqueTogether(
+            name='notification',
+            unique_together={('recipient', 'notification_type', 'quote', 'group_invite')},
         ),
         migrations.AlterField(
             model_name='event',
