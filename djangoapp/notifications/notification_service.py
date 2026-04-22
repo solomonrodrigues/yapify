@@ -8,14 +8,14 @@ from django.utils import timezone
 from djangoapp.notifications.models import Event, Notification
 
 
-HIGH_TIER = {'friend_request', 'friend_accepted', 'new_quote', 'quote_response'}
+HIGH_TIER = {'group_invite', 'group_invite_accepted', 'new_quote', 'quote_response'}
 LOW_TIER = {'quote_witnessed', 'quote_liked', 'quote_guessed', 'you_were_guessed'}
 
 _MAX_NOTIFICATIONS_PER_USER = 500
 
 _PUSH_TITLES = {
-    'friend_request': 'New Friend Request',
-    'friend_accepted': 'Friend Request Accepted',
+    'group_invite': 'Group Invite',
+    'group_invite_accepted': 'Group Invite Accepted',
     'new_quote': 'New Quote About You',
     'quote_witnessed': 'Quote Witnessed',
     'quote_liked': 'Quote Liked',
@@ -25,8 +25,8 @@ _PUSH_TITLES = {
 }
 
 _PUSH_BODIES = {
-    'friend_request': '{name} sent you a friend request',
-    'friend_accepted': '{name} accepted your friend request',
+    'group_invite': '{name} invited you to join {group}',
+    'group_invite_accepted': '{name} joined your group',
     'new_quote': '{name} posted a quote about you',
     'quote_witnessed': '{name} witnessed your quote',
     'quote_liked': '{name} liked your quote',
@@ -52,7 +52,7 @@ def _engagement_subtitle(event_type):
     return _random.choice(_ENGAGEMENT_SUBTITLES)
 
 
-def emit_event(event_type, actor, recipient, quote=None, friendship=None):
+def emit_event(event_type, actor, recipient, quote=None, group_invite=None):
     """Create an Event record and enqueue it for async processing."""
     from django_q.tasks import async_task
 
@@ -61,14 +61,14 @@ def emit_event(event_type, actor, recipient, quote=None, friendship=None):
         actor=actor,
         recipient=recipient,
         quote=quote,
-        friendship=friendship,
+        group_invite=group_invite,
     )
     async_task('djangoapp.notifications.tasks.process_event', event.id)
 
 
 def _is_suppressed(event):
     """Return True if this event should not produce a notification."""
-    from djangoapp.yapify.models import Friendship
+    from djangoapp.yapify.models import Block
 
     if event.actor_id == event.recipient_id:
         return True
@@ -77,11 +77,9 @@ def _is_suppressed(event):
     if not event.recipient.is_email_verified:
         return True
 
-    return Friendship.objects.filter(
-        status='blocked',
-    ).filter(
-        Q(sender_id=event.actor_id, receiver_id=event.recipient_id) |
-        Q(sender_id=event.recipient_id, receiver_id=event.actor_id)
+    return Block.objects.filter(
+        Q(blocker_id=event.actor_id, blocked_id=event.recipient_id) |
+        Q(blocker_id=event.recipient_id, blocked_id=event.actor_id)
     ).exists()
 
 
@@ -109,7 +107,7 @@ def process_event(event_id):
             recipient=event.recipient,
             notification_type=event.event_type,
             quote=event.quote,
-            friendship=event.friendship,
+            group_invite=event.group_invite,
             defaults={'last_event_at': event.created_at, 'actor_count': 1},
         )
         if not created:
@@ -144,7 +142,11 @@ def process_event(event_id):
 
     # Enqueue push notification
     title = _PUSH_TITLES.get(event.event_type, '')
-    body = _PUSH_BODIES.get(event.event_type, '').format(name=event.actor.get_full_name())
+    group_name = event.group_invite.group.name if event.group_invite_id else ''
+    body = _PUSH_BODIES.get(event.event_type, '').format(
+        name=event.actor.get_full_name(),
+        group=group_name,
+    )
 
     # For quote_response, use the actual confirmed/denied value in the body
     if event.event_type == 'quote_response' and event.quote_id:

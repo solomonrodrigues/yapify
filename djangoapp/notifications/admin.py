@@ -54,7 +54,7 @@ class NotificationAdmin(UnfoldModelAdmin):
     list_display = ('notification_type', 'recipient', 'actor_count', 'is_read', 'last_event_at', 'recipient_active_tokens')
     list_filter = ('notification_type', 'is_read')
     search_fields = ('recipient__email', 'recipient__username')
-    autocomplete_fields = ('recipient', 'quote', 'friendship')
+    autocomplete_fields = ('recipient', 'quote', 'group_invite')
     readonly_fields = ('actor_ids', 'actor_count', 'last_event_at', 'created_at')
     date_hierarchy = 'last_event_at'
     actions = ['mark_as_read', 'mark_as_unread']
@@ -70,7 +70,7 @@ class NotificationAdmin(UnfoldModelAdmin):
         )
         return (
             super().get_queryset(request)
-            .select_related('recipient', 'quote', 'friendship')
+            .select_related('recipient', 'quote', 'group_invite')
             .annotate(_active_token_count=Subquery(active_token_subquery, output_field=IntegerField()))
         )
 
@@ -96,12 +96,12 @@ class EventAdmin(UnfoldModelAdmin):
     list_display = ('event_type', 'actor', 'recipient', 'is_processed', 'processed_at', 'created_at')
     list_filter = ('event_type', EventProcessingFilter)
     search_fields = ('actor__email', 'actor__username', 'recipient__email', 'recipient__username')
-    autocomplete_fields = ('actor', 'recipient', 'quote', 'friendship')
+    autocomplete_fields = ('actor', 'recipient', 'quote', 'group_invite')
     readonly_fields = ('processed_at', 'created_at')
     date_hierarchy = 'created_at'
 
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related('actor', 'recipient', 'quote', 'friendship')
+        return super().get_queryset(request).select_related('actor', 'recipient', 'quote', 'group_invite')
 
     def is_processed(self, obj):
         return obj.processed_at is not None

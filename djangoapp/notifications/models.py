@@ -3,8 +3,8 @@ from django.db import models
 
 
 NOTIFICATION_TYPES = [
-    ('friend_request', 'Friend Request'),
-    ('friend_accepted', 'Friend Request Accepted'),
+    ('group_invite', 'Group Invite'),
+    ('group_invite_accepted', 'Group Invite Accepted'),
     ('new_quote', 'New Quote About You'),
     ('quote_witnessed', 'Quote Witnessed'),
     ('quote_liked', 'Quote Liked'),
@@ -16,7 +16,7 @@ NOTIFICATION_TYPES = [
 
 class Notification(models.Model):
     """
-    One row per notification group: (recipient, notification_type, quote, friendship).
+    One row per notification group: (recipient, notification_type, quote, group_invite).
     Maintained by the pipeline via upsert — never created directly in views.
     """
     recipient = models.ForeignKey(
@@ -24,24 +24,21 @@ class Notification(models.Model):
         on_delete=models.CASCADE,
         related_name='notifications',
     )
-    notification_type = models.CharField(max_length=20, choices=NOTIFICATION_TYPES)
+    notification_type = models.CharField(max_length=25, choices=NOTIFICATION_TYPES)
     quote = models.ForeignKey(
         'yapify.Quote',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
     )
-    friendship = models.ForeignKey(
-        'yapify.Friendship',
+    group_invite = models.ForeignKey(
+        'yapify.GroupInvite',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
     )
 
-    # Group state — maintained by the pipeline
     actor_ids = models.JSONField(default=list)
-    # Capped at 50 entries (display list); most-recent actor first.
-    # actor_count is the true all-time distinct-actor total and may exceed len(actor_ids).
     actor_count = models.IntegerField(default=0)
     is_read = models.BooleanField(default=False)
     last_event_at = models.DateTimeField()
@@ -49,7 +46,7 @@ class Notification(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = [('recipient', 'notification_type', 'quote', 'friendship')]
+        unique_together = [('recipient', 'notification_type', 'quote', 'group_invite')]
         ordering = ['-last_event_at']
         indexes = [
             models.Index(fields=['recipient']),
@@ -73,7 +70,7 @@ class Event(models.Model):
     Raw audit log — one row per user action that may produce a notification.
     processed_at=None means the worker hasn't handled it yet.
     """
-    event_type = models.CharField(max_length=20, choices=NOTIFICATION_TYPES)
+    event_type = models.CharField(max_length=25, choices=NOTIFICATION_TYPES)
     actor = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -90,8 +87,8 @@ class Event(models.Model):
         null=True,
         blank=True,
     )
-    friendship = models.ForeignKey(
-        'yapify.Friendship',
+    group_invite = models.ForeignKey(
+        'yapify.GroupInvite',
         on_delete=models.CASCADE,
         null=True,
         blank=True,
