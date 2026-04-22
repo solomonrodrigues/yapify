@@ -15,6 +15,7 @@ from post_office.models import Email as PostOfficeEmail, Log as PostOfficeLog, \
 from .models import (
     User, Friendship, Quote, QuoteWitness, QuoteLike, EmailVerification, QuoteGuess,
     SavedQuote, HiddenQuote, RecentSearchItem, Report, AppVersionConfig,
+    Group, GroupMembership, GroupInvite, Block,
 )
 
 
@@ -352,6 +353,39 @@ class ReportAdmin(UnfoldModelAdmin):
             return f'{snapshot.get("username", "?")} [deleted]'
         return "-"
     target_display.short_description = "Target"
+
+
+@admin.register(Group)
+class GroupAdmin(UnfoldModelAdmin):
+    list_display = ('id', 'name', 'created_by', 'created_at')
+    search_fields = ('name', 'created_by__email', 'created_by__username')
+    autocomplete_fields = ('created_by',)
+    readonly_fields = ('created_at', 'updated_at')
+
+
+@admin.register(GroupMembership)
+class GroupMembershipAdmin(UnfoldModelAdmin):
+    list_display = ('id', 'group', 'user', 'joined_at')
+    search_fields = ('group__name', 'user__email', 'user__username')
+    autocomplete_fields = ('group', 'user')
+    readonly_fields = ('joined_at',)
+
+
+@admin.register(GroupInvite)
+class GroupInviteAdmin(UnfoldModelAdmin):
+    list_display = ('id', 'group', 'invited_user', 'invited_by', 'status', 'created_at')
+    list_filter = ('status',)
+    search_fields = ('group__name', 'invited_user__email', 'invited_by__email')
+    autocomplete_fields = ('group', 'invited_user', 'invited_by')
+    readonly_fields = ('created_at', 'responded_at')
+
+
+@admin.register(Block)
+class BlockAdmin(UnfoldModelAdmin):
+    list_display = ('id', 'blocker', 'blocked', 'created_at')
+    search_fields = ('blocker__email', 'blocked__email')
+    autocomplete_fields = ('blocker', 'blocked')
+    readonly_fields = ('created_at',)
 
 
 @admin.register(AppVersionConfig)

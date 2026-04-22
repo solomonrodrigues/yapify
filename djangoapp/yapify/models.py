@@ -6,7 +6,7 @@ from django.contrib.auth.hashers import make_password, check_password
 from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
-from django.db.models import Q
+from django.db.models import Q, UniqueConstraint
 from django.utils import timezone
 
 from .choices import ProfileColor, QuoteResponse, ReportReason
@@ -65,34 +65,20 @@ class User(AbstractUser):
     def get_full_name(self):
         return self.display_name
 
-    def get_friends(self):
-        """Return all accepted friends"""
+    def get_group_members(self):
+        """Return all users who share at least one group with this user."""
+        group_ids = GroupMembership.objects.filter(user=self).values_list('group_id', flat=True)
         return User.objects.filter(
-            models.Q(sent_friendships__receiver=self, sent_friendships__status='accepted') |
-            models.Q(received_friendships__sender=self, received_friendships__status='accepted')
-        ).distinct()
-
-    def get_pending_friend_requests(self):
-        """Return pending friend requests received by this user"""
-        return Friendship.objects.filter(receiver=self, status='pending')
-
-    def get_valid_friends(self):
-        """Return friends, filtering out inactive or unverified."""
-        return self.get_friends().filter(is_active=True, is_email_verified=True)
+            group_memberships__group_id__in=group_ids
+        ).exclude(id=self.id).distinct()
 
     def get_blocked_users(self):
         """Return users this user has blocked."""
-        return User.objects.filter(
-            received_friendships__sender=self,
-            received_friendships__status='blocked'
-        ).distinct()
+        return User.objects.filter(blocks_received__blocker=self).distinct()
 
     def get_blocked_by_users(self):
         """Return users who have blocked this user."""
-        return User.objects.filter(
-            sent_friendships__receiver=self,
-            sent_friendships__status='blocked'
-        ).distinct()
+        return User.objects.filter(blocks_initiated__blocked=self).distinct()
 
     def get_all_blocked_user_ids(self):
         """Return IDs of users blocked by or blocking this user (for filtering).
@@ -103,20 +89,26 @@ class User(AbstractUser):
             self._cached_blocked_ids = blocked_ids | blocked_by_ids
         return self._cached_blocked_ids
 
-    def get_random_guess_options(self, exclude=None, count=3, seed=None):
-        """Return random friends for multiple choice, optionally excluding some.
+    def get_random_guess_options(self, quote, exclude=None, count=3, seed=None):
+        """Return random group members for multiple choice, excluding guesser/author/quoted_user.
         Deterministic if `seed` is provided.
         """
-        friends = list(self.get_valid_friends())
+        candidates = list(
+            GroupMembership.objects.filter(group=quote.group)
+            .exclude(user=self)
+            .select_related('user')
+            .values_list('user', flat=True)
+        )
         if exclude:
-            friends = [f for f in friends if f not in exclude]
+            exclude_ids = {u.id for u in exclude}
+            candidates = [uid for uid in candidates if uid not in exclude_ids]
 
-        if not friends:
+        if not candidates:
             return []
 
+        users = list(User.objects.filter(id__in=candidates, is_active=True, is_email_verified=True))
         rng = random.Random(seed) if seed is not None else random
-        # sample without replacement
-        return rng.sample(friends, min(len(friends), count))
+        return rng.sample(users, min(len(users), count))
 
     def increment_streak(self):
         self.current_streak += 1
@@ -243,9 +235,100 @@ class Friendship(models.Model):
         self.save()
 
 
+class Group(models.Model):
+    name = models.CharField(max_length=100)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='created_groups',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name
+
+
+class GroupMembership(models.Model):
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name='memberships')
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='group_memberships',
+    )
+    joined_at = models.DateTimeField(auto_now_add=True)
+    invited_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='group_invites_sent_memberships',
+    )
+
+    class Meta:
+        unique_together = ('group', 'user')
+
+    def __str__(self):
+        return f"{self.user} in {self.group}"
+
+
+class GroupInvite(models.Model):
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name='invites')
+    invited_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='group_invites_received',
+    )
+    invited_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='group_invites_sent',
+    )
+    status = models.CharField(
+        max_length=10,
+        choices=[('pending', 'Pending'), ('accepted', 'Accepted'), ('declined', 'Declined')],
+        default='pending',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    responded_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                fields=['group', 'invited_user'],
+                condition=Q(status='pending'),
+                name='unique_pending_group_invite',
+            )
+        ]
+
+    def __str__(self):
+        return f"Invite {self.invited_user} to {self.group} ({self.status})"
+
+
+class Block(models.Model):
+    blocker = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='blocks_initiated',
+    )
+    blocked = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='blocks_received',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('blocker', 'blocked')
+
+    def __str__(self):
+        return f"{self.blocker} blocked {self.blocked}"
+
+
 class Quote(models.Model):
     """
-    Model to store quotes that users post about their friends
+    Model to store quotes that users post within a group
     """
     text = models.TextField(max_length=1000)
     context = models.TextField(max_length=1000, blank=True, null=True)
@@ -276,6 +359,14 @@ class Quote(models.Model):
         null=True,
         help_text="Name of the person quoted (if not a registered user)"
     )
+    group = models.ForeignKey(
+        'Group',
+        on_delete=models.CASCADE,
+        related_name='quotes',
+        null=True,
+        blank=True,
+        help_text="Group this quote belongs to"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_active = models.BooleanField(default=True)
@@ -285,6 +376,7 @@ class Quote(models.Model):
         indexes = [
             models.Index(fields=['author', 'created_at']),
             models.Index(fields=['quoted_user', 'created_at']),
+            models.Index(fields=['group', 'created_at']),
         ]
 
     def clean(self):
@@ -293,16 +385,6 @@ class Quote(models.Model):
 
         if self.quoted_user and self.quoted_name:
             raise ValidationError("Specify either quoted_user OR quoted_name, not both.")
-
-        # Only enforce friendship check if quoted_user is set
-        if self.quoted_user:
-            friendship_exists = Friendship.objects.filter(
-                models.Q(sender=self.author, receiver=self.quoted_user, status='accepted') |
-                models.Q(sender=self.quoted_user, receiver=self.author, status='accepted')
-            ).exists()
-
-            if not friendship_exists:
-                raise ValidationError("You can only quote your friends.")
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -350,25 +432,14 @@ class QuoteWitness(models.Model):
         ]
 
     def clean(self):
-        # Ensure witness is the author, or is friends with either the author or quoted user
-        is_author = self.witness_id == self.quote.author_id
-        is_friend_of_author = Friendship.objects.filter(
-            models.Q(sender=self.witness, receiver=self.quote.author, status='accepted') |
-            models.Q(sender=self.quote.author, receiver=self.witness, status='accepted')
-        ).exists()
-
-        has_real_user = self.quote.has_real_user()
-
-        if has_real_user:
-            is_friend_of_quoted_user = Friendship.objects.filter(
-                models.Q(sender=self.witness, receiver=self.quote.quoted_user, status='accepted') |
-                models.Q(sender=self.quote.quoted_user, receiver=self.witness, status='accepted')
-            ).exists()
-        else:
-            is_friend_of_quoted_user = False
-
-        if not (is_author or is_friend_of_author or (has_real_user and is_friend_of_quoted_user)):
-            raise ValidationError("You can only witness quotes involving your friends.")
+        # Witness must be a member of the quote's group (or the author)
+        if self.witness_id == self.quote.author_id:
+            return
+        if self.quote.group_id and GroupMembership.objects.filter(
+            group_id=self.quote.group_id, user=self.witness
+        ).exists():
+            return
+        raise ValidationError("You can only witness quotes in your groups.")
 
     def save(self, *args, **kwargs):
         self.full_clean()
