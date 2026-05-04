@@ -1034,12 +1034,14 @@ class SavedQuoteListView(OptimizedQuoteViewMixin, generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user
         blocked_ids = user.get_all_blocked_user_ids()
+        user_group_ids = GroupMembership.objects.filter(user=user).values_list('group_id', flat=True)
 
         qs = (
             Quote.objects
             .filter(
                 saved_quote_links__user=user,
                 is_active=True,
+                group__in=user_group_ids,
             )
             .exclude(author__id__in=blocked_ids)
             .exclude(quoted_user__id__in=blocked_ids)
@@ -1060,12 +1062,14 @@ class HiddenQuoteListView(OptimizedQuoteViewMixin, generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user
         blocked_ids = user.get_all_blocked_user_ids()
+        user_group_ids = GroupMembership.objects.filter(user=user).values_list('group_id', flat=True)
 
         qs = (
             Quote.objects
             .filter(
                 hidden_quote_links__user=user,
                 is_active=True,
+                group__in=user_group_ids,
             )
             .exclude(author__id__in=blocked_ids)
             .exclude(quoted_user__id__in=blocked_ids)
