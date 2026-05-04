@@ -16,7 +16,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django.shortcuts import get_object_or_404
 from django.conf import settings
 from django.db.models import F, Q, Max, Count, Exists, OuterRef, Prefetch
-from djangoapp.yapify.models import User, Friendship, Quote, QuoteWitness, QuoteLike, EmailVerification, \
+from djangoapp.yapify.models import User, Quote, QuoteWitness, QuoteLike, EmailVerification, \
     QuoteGuess, RecentSearchItem, SavedQuote, HiddenQuote, PasswordReset, Report, \
     Group, GroupMembership, GroupInvite, Block
 from djangoapp.notifications.models import Notification, Event, DeviceToken
@@ -24,8 +24,6 @@ from djangoapp.notifications.notification_service import emit_event
 from .serializers import (
     UserRegistrationSerializer,
     UserSerializer,
-    FriendshipSerializer,
-    FriendRequestSerializer,
     QuoteSerializer,
     QuoteWitnessSerializer,
     NotificationSerializer,
@@ -48,8 +46,6 @@ from .serializers import (
     DeviceTokenSerializer,
     RegisterResponseSerializer,
     MessageResponseSerializer,
-    FriendRequestActionSerializer,
-    FriendshipWithMessageSerializer,
     WitnessResponseSerializer,
     QuoteRespondRequestSerializer,
     QuoteWithMessageSerializer,

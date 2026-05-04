@@ -176,65 +176,6 @@ class PasswordReset(models.Model):
         return check_password(code, self.code_hash)
 
 
-class Friendship(models.Model):
-    """
-    Model to handle friend relationships between users
-    """
-    STATUS_CHOICES = [
-        ('pending', 'Pending'),
-        ('accepted', 'Accepted'),
-        ('rejected', 'Rejected'),
-        ('blocked', 'Blocked'),
-    ]
-
-    sender = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='sent_friendships'
-    )
-    receiver = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='received_friendships'
-    )
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        unique_together = ('sender', 'receiver')
-        indexes = [
-            models.Index(fields=['sender', 'status']),
-            models.Index(fields=['receiver', 'status']),
-        ]
-
-    def clean(self):
-        # Prevent users from sending friend requests to themselves
-        if self.sender == self.receiver:
-            raise ValidationError("Users cannot send friend requests to themselves.")
-
-        # Check if reverse friendship already exists
-        if Friendship.objects.filter(sender=self.receiver, receiver=self.sender).exists():
-            raise ValidationError("A friendship request already exists between these users.")
-
-    def save(self, *args, **kwargs):
-        self.full_clean()
-        super().save(*args, **kwargs)
-
-    def __str__(self):
-        return f"{self.sender} -> {self.receiver} ({self.status})"
-
-    def accept(self):
-        """Accept the friendship request"""
-        self.status = 'accepted'
-        self.save()
-
-    def reject(self):
-        """Reject the friendship request"""
-        self.status = 'rejected'
-        self.save()
-
-
 class Group(models.Model):
     name = models.CharField(max_length=100)
     created_by = models.ForeignKey(
@@ -521,7 +462,7 @@ class QuoteGuess(models.Model):
         null=True,
         blank=True,
         related_name="guessed_by",
-        help_text="The friend they guessed. Null if skipped.",
+        help_text="The user they guessed. Null if skipped.",
     )
     correct = models.BooleanField(null=True, blank=True)
     skipped = models.BooleanField(default=False)

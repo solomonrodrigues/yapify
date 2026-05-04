@@ -7,7 +7,7 @@ from django.utils import timezone
 
 
 def dashboard_callback(request, context):
-    from .models import User, Quote, Friendship, QuoteLike, Report
+    from .models import User, Quote, QuoteLike, Report
 
     now = timezone.now()
     thirty_days_ago = now - timedelta(days=30)
@@ -20,7 +20,6 @@ def dashboard_callback(request, context):
         "monthly_active_users": User.objects.filter(last_login__gte=thirty_days_ago).count(),
         "total_quotes": Quote.objects.count(),
         "quotes_this_month": Quote.objects.filter(created_at__gte=start_of_month).count(),
-        "active_friendships": Friendship.objects.filter(status="accepted").count(),
         "total_likes": QuoteLike.objects.count(),
         "recent_reports": Report.objects.filter(created_at__gte=thirty_days_ago).count(),
     }

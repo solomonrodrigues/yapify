@@ -14,7 +14,7 @@ from django.conf import settings
 from django.utils import timezone
 
 from djangoapp.yapify.models import (
-    User, Friendship, Quote, QuoteWitness, QuoteLike, QuoteGuess, RecentSearchItem, Report,
+    User, Quote, QuoteWitness, QuoteLike, QuoteGuess, RecentSearchItem, Report,
     Group, GroupMembership, GroupInvite,
 )
 from djangoapp.notifications.models import Notification
@@ -113,44 +113,6 @@ class UserSerializer(serializers.ModelSerializer):
     def get_quotes_received(self, obj):
         val = getattr(obj, 'annotated_quotes_received', None)
         return val if val is not None else obj.quotes_about_me.filter(is_active=True).count()
-
-
-class FriendshipSerializer(serializers.ModelSerializer):
-    """Serializer for friendship relationships"""
-    sender = MinimalUserSerializer(read_only=True)
-    receiver = MinimalUserSerializer(read_only=True)
-
-    class Meta:
-        model = Friendship
-        fields = ('id', 'sender', 'receiver', 'status', 'created_at', 'updated_at')
-        read_only_fields = ('id', 'sender', 'receiver', 'created_at', 'updated_at')
-
-
-class FriendRequestSerializer(serializers.ModelSerializer):
-    """Serializer for sending friend requests"""
-    receiver_id = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.all(), write_only=True, required=True, allow_null=False
-    )
-
-    class Meta:
-        model = Friendship
-        fields = ('receiver_id',)
-
-    def create(self, validated_data):
-        sender = self.context['request'].user
-        receiver = validated_data['receiver_id']
-
-        # Clear any stale rejected row in either direction so a fresh request
-        # can be sent. Only rejected rows are removed — pending/accepted/blocked
-        # rows remain and will still fail Friendship.clean() as expected.
-        Friendship.objects.filter(
-            Q(sender=sender, receiver=receiver) |
-            Q(sender=receiver, receiver=sender),
-            status='rejected',
-        ).delete()
-
-        friendship = Friendship.objects.create(sender=sender, receiver=receiver)
-        return friendship
 
 
 class QuoteWitnessSerializer(serializers.ModelSerializer):
@@ -688,15 +650,6 @@ class RegisterResponseSerializer(serializers.Serializer):
 
 class MessageResponseSerializer(serializers.Serializer):
     message = serializers.CharField()
-
-
-class FriendRequestActionSerializer(serializers.Serializer):
-    action = serializers.ChoiceField(choices=['accept', 'reject'])
-
-
-class FriendshipWithMessageSerializer(serializers.Serializer):
-    message = serializers.CharField()
-    friendship = FriendshipSerializer(read_only=True)
 
 
 class WitnessResponseSerializer(serializers.Serializer):

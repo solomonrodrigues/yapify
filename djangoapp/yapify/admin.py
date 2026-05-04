@@ -13,7 +13,7 @@ from post_office.admin import (
 from post_office.models import Email as PostOfficeEmail, Log as PostOfficeLog, \
     EmailTemplate as PostOfficeEmailTemplate, Attachment as PostOfficeAttachment
 from .models import (
-    User, Friendship, Quote, QuoteWitness, QuoteLike, EmailVerification, QuoteGuess,
+    User, Quote, QuoteWitness, QuoteLike, EmailVerification, QuoteGuess,
     SavedQuote, HiddenQuote, RecentSearchItem, Report, AppVersionConfig,
     Group, GroupMembership, GroupInvite, Block,
 )
@@ -105,28 +105,6 @@ class EmailVerificationAdmin(UnfoldModelAdmin):
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related("user")
-
-
-@admin.register(Friendship)
-class FriendshipAdmin(UnfoldModelAdmin):
-    list_display = ('id', 'sender', 'receiver', 'status', 'created_at')
-    list_filter = ('status', 'created_at')
-    search_fields = ('sender__email', 'sender__username', 'receiver__email', 'receiver__username')
-    autocomplete_fields = ('sender', 'receiver')
-    actions = ['accept_friendships', 'reject_friendships']
-
-    def get_queryset(self, request):
-        return super().get_queryset(request).select_related('sender', 'receiver')
-
-    @admin.action(description="Accept selected friendships")
-    def accept_friendships(self, request, queryset):
-        updated = queryset.filter(status='pending').update(status='accepted')
-        self.message_user(request, f"Accepted {updated} friendship(s).", messages.SUCCESS)
-
-    @admin.action(description="Reject selected friendships")
-    def reject_friendships(self, request, queryset):
-        updated = queryset.filter(status='pending').update(status='rejected')
-        self.message_user(request, f"Rejected {updated} friendship(s).", messages.SUCCESS)
 
 
 @admin.register(Quote)

@@ -223,7 +223,6 @@ UNFOLD = {
             {
                 "title": "Social",
                 "items": [
-                    {"title": "Friendships", "link": "/admin/yapify/friendship/", "icon": "group"},
                     {"title": "Recent Searches", "link": "/admin/yapify/recentsearchitem/", "icon": "search"},
                 ],
             },
