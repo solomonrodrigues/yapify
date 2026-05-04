@@ -158,9 +158,11 @@ def process_event(event_id):
 
     subtitle = _engagement_subtitle(event.event_type)
     recipient_id = event.recipient_id
-    data = {'notification_type': event.event_type}
+    data = {'notification_type': event.event_type, 'actor_id': str(event.actor_id)}
     if event.quote_id:
         data['quote_id'] = str(event.quote_id)
+    if event.group_invite_id:
+        data['group_id'] = str(event.group_invite.group_id)
 
     if event.event_type in HIGH_TIER:
         async_task(
