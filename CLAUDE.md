@@ -44,7 +44,7 @@ Note: No test framework is currently configured.
 djangoapp/
 ├── yapify/              # Project configuration and core models
 │   ├── settings/        # Environment-specific settings (base, development, production)
-│   ├── models.py        # 12 data models (User, Quote, Friendship, etc.)
+│   ├── models.py        # Core data models (User, Quote, Group, GroupMembership, etc.)
 │   ├── admin.py         # Django admin configuration
 │   ├── managers.py      # Custom user manager (email-based auth)
 │   ├── choices.py       # ProfileColor, QuoteResponse, ReportReason enums
@@ -61,11 +61,14 @@ djangoapp/
 ## Key Domain Concepts
 
 - **User**: Custom auth model with email-based login, display_name, bio, profile_color, streak tracking
-- **Friendship**: Friend relationships with statuses (pending, accepted, rejected, blocked). Users can only quote their friends.
-- **Quote**: Posted quotes with text, context, author, and a quoted_user (friend) or quoted_name (non-user)
-- **QuoteWitness**: Witnesses verify they saw a quote happen
+- **Group**: A circle of users; quotes belong to a group and are visible only to its members
+- **GroupMembership**: Joins users to groups; basis for quote eligibility, visibility, and witnessing
+- **GroupInvite**: Pending invitation to join a group; accepted by the recipient via the notifications surface
+- **Block**: Per-user block list; suppresses notifications and excludes the blocker/blocked from each other's feeds
+- **Quote**: Posted quotes with text, context, author, and a quoted_user (group member) or quoted_name (non-user). Belongs to a Group.
+- **QuoteWitness**: Witnesses verify they saw a quote happen (must be a member of the quote's group)
 - **QuoteGuess**: Guessing game tracking with streak mechanics (correct increments, wrong resets, max 3 skips/week)
-- **Notification**: 5 types: friend_request, friend_accepted, new_quote, quote_witnessed, quote_liked
+- **Notification**: 8 types: group_invite, group_invite_accepted, new_quote, quote_witnessed, quote_liked, quote_guessed, you_were_guessed, quote_response
 
 ## API Patterns
 
@@ -78,9 +81,9 @@ djangoapp/
 ## Important Constraints
 
 - Usernames must be lowercase, containing only letters, dots, and underscores
-- Users can only quote their friends (enforced in model validation)
-- Quote visibility uses a union model: a quote is visible to the union of the author's friends and the quoted user's friends
-- Viewing a user's posted/received quotes requires being friends with them (or being the user themselves)
+- Users can only quote members of a group they belong to (enforced in model validation)
+- Quote visibility is scoped to the quote's group: a quote is visible only to members of that group
+- Viewing a user's posted/received quotes requires sharing at least one group with them (or being the user themselves)
 - No API versioning - uses minimum app version enforcement via `X-App-Version` header
 - Email sending disabled by default (`EMAILS_ENABLED = False` in settings)
 
